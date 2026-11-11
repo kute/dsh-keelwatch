@@ -54,23 +54,23 @@ test('classifyDrift marks unanalyzable declarations as skipped with a reason', (
 })
 
 test('checkEngine flags a DSH version outside engines.dsh', () => {
-  const union = '>=0.2.1-0 <0.3.0 || >=0.2.2-0 <0.3.0'
+  const union = '>=0.2.1-0 <0.3.0-0'
   assert.equal(checkEngine(union, '0.2.2-rc.1').level, 'none')
   assert.equal(checkEngine(union, '0.3.0').level, 'major')
   assert.equal(checkEngine('>=9.0.0', '0.2.1-rc.5').level, 'major')
   assert.equal(checkEngine(union, 'garbage').level, 'skipped')
 })
 
-test('a prerelease answers only to a range naming its own tuple (npm rule)', () => {
+test('prerelease ranges match the host includePrerelease semantics', () => {
   const rc5 = parseVersion('0.2.1-rc.5')
   const rc22 = parseVersion('0.2.2-rc.1')
-  // The obvious single clause admits neither: this is why engines.dsh is a union.
+  const rc30 = parseVersion('0.3.0-rc.1')
+  // Anchoring on a release excludes its own release candidate: pure precedence.
   assert.equal(satisfies(rc5, '>=0.2.1 <0.3.0'), false)
-  assert.equal(satisfies(rc22, '>=0.2.1 <0.3.0'), false)
-  // Each clause admits its own tuple only.
-  assert.equal(satisfies(rc5, '>=0.2.1-0 <0.3.0'), true)
-  assert.equal(satisfies(rc22, '>=0.2.1-0 <0.3.0'), false)
-  assert.equal(satisfies(rc22, '>=0.2.2-0 <0.3.0'), true)
-  // And a future minor's prerelease stays out.
-  assert.equal(satisfies(parseVersion('0.3.0-rc.1'), '>=0.2.2-0 <0.3.0'), false)
+  // The shipped range form admits both shipped lines and stops at 0.3.0-0.
+  assert.equal(satisfies(rc5, '>=0.2.1-0 <0.3.0-0'), true)
+  assert.equal(satisfies(rc22, '>=0.2.1-0 <0.3.0-0'), true)
+  assert.equal(satisfies(rc30, '>=0.2.1-0 <0.3.0-0'), false)
+  // A range used by real plugins in the wild, which the launcher accepts.
+  assert.equal(satisfies(rc5, '>=0.2.0-rc.1 <0.3.0-0'), true)
 })

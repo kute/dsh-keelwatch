@@ -68,8 +68,8 @@ dsh plugin --profile <your-profile> add @kute/dsh-keelwatch
 
 ## 版本与平台
 
-- `engines.dsh`：`>=0.2.1-0 <0.3.0 || >=0.2.2-0 <0.3.0`
-  为什么是联合范围：DSH 只发布 prerelease，而 npm semver 规定 prerelease 只有在范围里出现**同一 major.minor.patch** 的 prerelease 时才被接受。所以 `>=0.2.1 <0.3.0` 会同时拒绝 `0.2.1-rc.5` 和 `0.2.2-rc.1`。
+- `engines.dsh`：`>=0.2.1-0 <0.3.0-0`
+  为什么这样写：宿主用 `semver.satisfies(v, range, { includePrerelease: true })` 判定，而 DSH 的每个版本都是 prerelease。以 release 为锚（`>=0.2.1`）时永远不包含它自己的 `0.2.1-rc.*`；`<0.3.0-0` 则挡住下一个 minor 的 prerelease。
 - 平台：无平台专属代码，`dsh.bundle.platforms` 省略即全平台。
 
 ## 开发

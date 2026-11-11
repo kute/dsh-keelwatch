@@ -31,7 +31,7 @@
     "README.md"
   ],
   "engines": {
-    "dsh": ">=0.2.1-0 <0.3.0 || >=0.2.2-0 <0.3.0",
+    "dsh": ">=0.2.1-0 <0.3.0-0",
     "node": ">=22.19"
   },
   "scripts": {
@@ -43,7 +43,8 @@
   "dependencies": {},
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.0",
-    "@deepseek-ai/schemastery": "^3.18.0"
+    "@deepseek-ai/schemastery": "^3.18.0",
+    "@deepseek-ai/dsh-tools": "^0.2.1"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "~4.0.5",

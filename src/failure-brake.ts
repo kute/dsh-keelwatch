@@ -32,6 +32,8 @@ export type BrakeVerdict = { deny: false; reason?: never } | { deny: true; reaso
  */
 export class FailureBrake {
   private readonly states = new Map<string, BrakeState>()
+  /** Monotonic counter of state changes, used by the persistence layer. */
+  private revision = 0
 
   constructor(private readonly config: FailureBrakeConfig) {}
 
@@ -61,6 +63,7 @@ export class FailureBrake {
   observe(tool: string, isError: boolean, now: number = Date.now()): void {
     if (!this.covers(tool)) return
     const state = this.stateOf(tool)
+    this.revision += 1
     if (!isError) {
       state.failures = 0
       state.openedAt = null
@@ -106,6 +109,11 @@ export class FailureBrake {
       `keelwatch: ${tool} failed ${this.config.maxConsecutiveErrors} times in a row and is cooling down ` +
       `for ${this.config.cooldownMinutes} minute(s). Do not retry it; use another tool or tell the user.`
     )
+  }
+
+  /** Monotonic count of observed calls; the persist layer compares it. */
+  getRevision(): number {
+    return this.revision
   }
 
   /** Snapshot for persistence and for the report tool. */

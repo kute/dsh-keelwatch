@@ -10,10 +10,13 @@
  * alternatives. Anything else (tags, git urls, `workspace:`, file paths, npm
  * aliases) classifies as `skipped` instead of guessing.
  *
- * The prerelease rule is reproduced on purpose: npm semver admits a prerelease
- * only when the range names a prerelease of the *same* major.minor.patch tuple.
- * DSH ships nothing but prereleases, so this rule decides every `engines.dsh`
- * check the scanner performs.
+ * Prerelease handling matches the host, not npm's default: DSH evaluates
+ * `engines.dsh` with `semver.satisfies(version, range, { includePrerelease:
+ * true })` (`packages/boot/app-boot/src/plugin-compatibility.ts`), so a
+ * prerelease is compared by ordinary precedence and needs no same-tuple anchor.
+ * Getting this wrong makes the scanner report bundles as incompatible that the
+ * launcher happily loads — the one false positive that would destroy trust in
+ * the report.
  */
 
 export interface SemVer {
@@ -124,27 +127,26 @@ function upperBoundForTilde(version: SemVer): SemVer {
 }
 
 /** Expand one token into plain bounds, or `null` for unmodelled syntax. */
-function expandToken(token: string): { bounds: Bound[]; anchor: SemVer | null } | null {
+function expandToken(token: string): { bounds: Bound[] } | null {
   const comparator = parseComparator(token)
   if (comparator !== null) {
     switch (comparator.operator) {
       case '=':
-        return { bounds: [{ operator: '=', version: comparator.version }], anchor: comparator.version }
+        return { bounds: [{ operator: '=', version: comparator.version }] }
       case '>=':
-        return { bounds: [{ operator: '>=', version: comparator.version }], anchor: comparator.version }
+        return { bounds: [{ operator: '>=', version: comparator.version }] }
       case '>':
-        return { bounds: [{ operator: '>', version: comparator.version }], anchor: comparator.version }
+        return { bounds: [{ operator: '>', version: comparator.version }] }
       case '<=':
-        return { bounds: [{ operator: '<=', version: comparator.version }], anchor: comparator.version }
+        return { bounds: [{ operator: '<=', version: comparator.version }] }
       case '<':
-        return { bounds: [{ operator: '<', version: comparator.version }], anchor: comparator.version }
+        return { bounds: [{ operator: '<', version: comparator.version }] }
       case '^':
         return {
           bounds: [
             { operator: '>=', version: comparator.version },
             { operator: '<', version: upperBoundForCaret(comparator.version) },
           ],
-          anchor: comparator.version,
         }
       case '~':
         return {
@@ -152,7 +154,6 @@ function expandToken(token: string): { bounds: Bound[]; anchor: SemVer | null } 
             { operator: '>=', version: comparator.version },
             { operator: '<', version: upperBoundForTilde(comparator.version) },
           ],
-          anchor: comparator.version,
         }
     }
   }
@@ -166,16 +167,16 @@ function expandToken(token: string): { bounds: Bound[]; anchor: SemVer | null } 
   if (minorRaw === undefined) {
     const low: SemVer = { major, minor: 0, patch: 0, pre: [] }
     const high: SemVer = { major: major + 1, minor: 0, patch: 0, pre: [] }
-    return { bounds: [{ operator: '>=', version: low }, { operator: '<', version: high }], anchor: low }
+    return { bounds: [{ operator: '>=', version: low }, { operator: '<', version: high }] }
   }
   if (patchRaw === undefined) {
     const minor = Number(minorRaw)
     const low: SemVer = { major, minor, patch: 0, pre: [] }
     const high: SemVer = { major, minor: minor + 1, patch: 0, pre: [] }
-    return { bounds: [{ operator: '>=', version: low }, { operator: '<', version: high }], anchor: low }
+    return { bounds: [{ operator: '>=', version: low }, { operator: '<', version: high }] }
   }
   const exact: SemVer = { major, minor: Number(minorRaw), patch: Number(patchRaw), pre: [] }
-  return { bounds: [{ operator: '=', version: exact }], anchor: exact }
+  return { bounds: [{ operator: '=', version: exact }] }
 }
 
 function holds(version: SemVer, bound: Bound): boolean {
@@ -194,10 +195,6 @@ function holds(version: SemVer, bound: Bound): boolean {
   }
 }
 
-function sameTuple(a: SemVer, b: SemVer): boolean {
-  return a.major === b.major && a.minor === b.minor && a.patch === b.patch
-}
-
 function isUnmodelled(trimmed: string): boolean {
   return /^(workspace:|file:|link:|npm:|github:|git\+|https?:|\/|\.)/.test(trimmed) || trimmed === 'beta' || trimmed === 'next'
 }
@@ -212,18 +209,11 @@ function satisfiesSingle(version: SemVer, range: string): boolean | null {
   if (tokens.length === 0) return true
 
   const bounds: Bound[] = []
-  const prereleaseAnchors: SemVer[] = []
   for (const token of tokens) {
     const expanded = expandToken(token)
     if (expanded === null) return null
     bounds.push(...expanded.bounds)
-    if (expanded.anchor !== null && expanded.anchor.pre.length > 0) prereleaseAnchors.push(expanded.anchor)
   }
-
-  // npm semver gating: a prerelease version only answers to a range that names
-  // a prerelease of the same tuple. Without this, `>=0.2.2-0 <0.3.0` would
-  // wrongly admit `0.3.0-rc.1`.
-  if (version.pre.length > 0 && !prereleaseAnchors.some((anchor) => sameTuple(anchor, version))) return false
 
   return bounds.every((bound) => holds(version, bound))
 }

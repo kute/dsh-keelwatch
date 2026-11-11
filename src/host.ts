@@ -32,10 +32,30 @@ export interface PreToolDeny {
 
 export type PreToolDecisionLike = PreToolDeny | { readonly kind: 'allow' } | { readonly kind: 'cancel' }
 
+/**
+ * Service lookup without an injection requirement.
+ *
+ * Cordis exposes `ctx.reflect.get(name)` for exactly this: reading a service
+ * a plugin does not want to depend on. Every optional capability in this
+ * plugin (timer, plugin manager, tool registry) is resolved through it so a
+ * profile that lacks one still loads the rest.
+ */
+export interface HostReflect {
+  get(name: string): unknown
+}
+
 export interface KeelwatchHost {
   readonly logger?: WarnSink
   /** Provided by `@deepseek-ai/cordis-plugin-timer`; dies with the fiber. */
-  readonly timer?: { interval(callback: () => void, delay: number): unknown }
+  readonly timer?: { interval(callback: () => void, delay: number): unknown; timeout?(callback: () => void, delay: number): unknown }
   /** Register a waterfall listener; the host owns its disposal. */
   on(event: string, listener: (...args: any[]) => unknown): unknown
+  /** Run a disposer-scoped effect; used for the final state flush. */
+  effect?(execute: () => (() => unknown) | void): unknown
+  /** Optional-service lookup. */
+  readonly reflect?: HostReflect
+  /** Tool registry, when the profile provides it. */
+  readonly tools?: { register(tool: unknown): unknown }
+  /** Profile bundle management, when the profile provides it. */
+  readonly pluginManager?: unknown
 }
