@@ -1,0 +1,14 @@
+# Layer contributed by @kute/dsh-keelwatch.
+#
+# Installed bundles are appended to a profile's `dsh.profile.bundles`, and this
+# patch is applied after the official layers. A later layer replaces a whole
+# row `config` (not a deep merge), so overriding any key below from a profile
+# patch means restating every sibling key it needs.
+- insert:
+    - id: keelwatch
+      name: '@kute/dsh-keelwatch'
+      config:
+        # Off by default: only record and warn, never intercept a call.
+        failureBrake:
+          enabled: false
+          action: log
