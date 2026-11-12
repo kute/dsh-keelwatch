@@ -34,6 +34,15 @@ export interface TokenMeterLike {
   }
 }
 
+/** One expensive surface message, identified by seq, producer and a short preview. */
+export interface ExpensiveMessage {
+  readonly session: string
+  readonly seq: number
+  readonly kind: string
+  readonly tokens: number
+  readonly preview: string
+}
+
 export interface TokenUsage {
   readonly session: string
   readonly totalTokens: number
@@ -48,6 +57,8 @@ export interface TokenUsage {
 const MAX_SESSIONS = 20
 /** Per-session seq map bound; enough for a very long conversation's surface. */
 const MAX_SEQ_ENTRIES = 5000
+/** Characters of message text kept for the "most expensive message" list. */
+const PREVIEW_CHARS = 100
 
 function sessionIdOf(session: unknown): string | null {
   if (typeof session !== 'object' || session === null) return null
@@ -78,9 +89,40 @@ export function sourceKindOf(event: SessionEventLike): string | null {
   return null
 }
 
+/**
+ * First line of an event's model-visible text, trimmed to a preview.
+ *
+ * Kept short on purpose: the list exists to answer "which block is burning the
+ * budget", and a long excerpt would itself become context the reader pays for.
+ */
+export function previewOf(event: SessionEventLike): string {
+  const data = event.data
+  if (typeof data !== 'object' || data === null) return ''
+  const record = data as Record<string, unknown>
+  const message = (typeof record['message'] === 'object' && record['message'] !== null
+    ? record['message']
+    : record) as Record<string, unknown>
+  const content = message['content']
+  const blocks = Array.isArray(content) ? content : [content]
+  for (const block of blocks) {
+    if (typeof block === 'string') return block.replace(/\s+/g, ' ').trim().slice(0, PREVIEW_CHARS)
+    if (typeof block !== 'object' || block === null) continue
+    const text = (block as Record<string, unknown>)['text']
+    if (typeof text === 'string' && text.trim() !== '') {
+      return text.replace(/\s+/g, ' ').trim().slice(0, PREVIEW_CHARS)
+    }
+  }
+  return ''
+}
+
+interface SeqRecord {
+  readonly kind: string
+  readonly preview: string
+}
+
 interface TrackedSession {
   readonly session: unknown
-  readonly kinds: Map<number, string>
+  readonly kinds: Map<number, SeqRecord>
 }
 
 /**
@@ -100,6 +142,7 @@ export class TokenAttribution {
     if (id === null) return
     const kind = sourceKindOf(event)
     if (kind === null) return
+    const preview = previewOf(event)
     const seq = event.seq
     if (typeof seq !== 'number') return
 
@@ -118,7 +161,7 @@ export class TokenAttribution {
       this.tracked.set(id, entry)
     }
 
-    entry.kinds.set(seq, kind)
+    entry.kinds.set(seq, { kind, preview })
     if (entry.kinds.size > MAX_SEQ_ENTRIES) {
       const oldestSeq = entry.kinds.keys().next()
       if (!oldestSeq.done) entry.kinds.delete(oldestSeq.value)
@@ -135,12 +178,12 @@ export class TokenAttribution {
         const byKind: Record<string, number> = {}
         let unknownTokens = 0
         for (const node of nodes) {
-          const kind = entry.kinds.get(node.seq)
-          if (kind === undefined) {
+          const record = entry.kinds.get(node.seq)
+          if (record === undefined) {
             unknownTokens += node.tokens
             continue
           }
-          byKind[kind] = (byKind[kind] ?? 0) + node.tokens
+          byKind[record.kind] = (byKind[record.kind] ?? 0) + node.tokens
         }
         usages.push({
           session: id,
@@ -155,6 +198,32 @@ export class TokenAttribution {
       }
     }
     return usages
+  }
+
+  /**
+   * The most expensive identifiable surface messages across tracked sessions.
+   *
+   * This is the drill-down the per-kind table cannot give: *which* block costs
+   * 18k tokens, and what is it. Nodes with no recorded preview are still listed
+   * (their seq and cost are known), just without text.
+   */
+  topMessages(meter: TokenMeterLike, limit = 5): ExpensiveMessage[] {
+    const collected: ExpensiveMessage[] = []
+    for (const [id, entry] of this.tracked) {
+      let nodes: readonly { readonly seq: number; readonly tokens: number }[] = []
+      try {
+        nodes = meter.measure(entry.session).nodes ?? []
+      } catch (error) {
+        this.logger?.warn(`keelwatch: token measurement failed: ${error instanceof Error ? error.message : String(error)}`)
+        continue
+      }
+      for (const node of nodes) {
+        const record = entry.kinds.get(node.seq)
+        if (record === undefined) continue
+        collected.push({ session: id, seq: node.seq, kind: record.kind, tokens: node.tokens, preview: record.preview })
+      }
+    }
+    return collected.sort((left, right) => right.tokens - left.tokens).slice(0, limit)
   }
 
   /** Number of sessions currently tracked (report/test aid). */

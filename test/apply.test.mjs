@@ -48,6 +48,7 @@ function baseConfig(overrides) {
       neverBrake: ['ask_user_question'],
     },
     costAttribution: { enabled: false, retentionDays: 7, toolToBundle: {}, topN: 10 },
+    dashboard: { enabled: false, refreshSeconds: 30 },
     ...overrides,
   }
 }

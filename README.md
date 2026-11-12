@@ -8,8 +8,8 @@ The **operations layer** for a DeepSeek Harness (DSH) plugin ecosystem. Once you
 |:---|:---|:---|
 | A plugin silently stops working | DSH starts fine, but a capability is gone | Reads every bundle's load result and reports the exact package that failed |
 | Upstream moved, next reinstall breaks | Works today, breaks after an upgrade | Compares declared dependency ranges against the registry and grades the drift (major / minor / patch) |
-| One broken tool gets retried forever | Tokens burn, turns get slow | Counts consecutive failures per tool and cools it down with a clear message to the model |
-| Token cost is a mystery | Big bills, no attribution | Attributes surface tokens per source (`user` / `model` / `tool` / `plugin:xxx`) using the host token meter |
+| One broken tool gets retried forever | Tokens burn, turns get slow | Counts consecutive failures per tool, then denies further calls with a cause-specific next step (not just "no"). User cancellations are never counted |
+| Token cost is a mystery | Big bills, no attribution | Attributes surface tokens per source (`user` / `model` / `tool` / `plugin:xxx`) and lists the most expensive individual messages |
 
 ## First, what is a bundle?
 
@@ -68,6 +68,18 @@ Two ways, same result:
       topN: 10
       toolToBundle: {}
 ```
+
+## Dashboard (opt-in, off by default)
+
+Turn it on in the plugin config page, or in YAML:
+
+```yaml
+dashboard:
+  enabled: true       # default false
+  refreshSeconds: 30  # 10–600
+```
+
+Then open `http://127.0.0.1:3080/keelwatch/dashboard?token=<your GUI token>`. One page shows bundle health, dependency drift, brake state, per-tool latency (calls/errors/total/p95), token cost by source with the most expensive individual messages, and recent detection history. It is plain HTML — no client build, no dependency on the client plugin loading — and turning the switch off unregisters both routes.
 
 ## How detection runs
 

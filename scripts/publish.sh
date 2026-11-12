@@ -40,6 +40,11 @@ if [ "$DRY_RUN" -eq 0 ]; then
   say "登录账号：$ACCOUNT"
 fi
 
+# The index is regenerated BEFORE the test run: market-index.test.mjs asserts it
+# matches package.json, so a version bump would otherwise fail its own release.
+say "生成索引（先于测试，避免版本号不一致）"
+node scripts/market-index.mjs --source npm --out docs/index.json
+
 say "构建 + 测试"
 pnpm build
 node --test test/*.test.mjs | tail -3
@@ -57,8 +62,7 @@ else
   npm publish --registry="$REGISTRY" --access public
 fi
 
-say "索引切换到 npm 源"
-node scripts/market-index.mjs --source npm --out docs/index.json
+say "复核索引"
 node scripts/market-index.mjs --check
 /usr/bin/git add docs/index.json package.json pnpm-lock.yaml
 if ! /usr/bin/git diff --cached --quiet; then

@@ -49,10 +49,17 @@ export interface CostAttributionConfig {
     /** Entries reported per table. */
     topN: number;
 }
+export interface DashboardConfig {
+    /** Serve /keelwatch/dashboard and /keelwatch/status. */
+    enabled: boolean;
+    /** Page refresh interval; the page clamps it to >= 10 s. */
+    refreshSeconds: number;
+}
 export interface Config {
     driftRadar: DriftRadarConfig;
     failureBrake: FailureBrakeConfig;
     costAttribution: CostAttributionConfig;
+    dashboard: DashboardConfig;
 }
 export declare const Config: z<Config>;
 export declare const DEFAULTS: Config;

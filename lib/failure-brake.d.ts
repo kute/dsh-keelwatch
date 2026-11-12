@@ -18,6 +18,11 @@ export interface BrakeState {
     openedAt: number | null;
     /** A single half-open probe is already in flight. */
     probeInFlight: boolean;
+    /** Code and message of the most recent countable failure. */
+    lastError?: {
+        code?: string;
+        message?: string;
+    };
 }
 export type BrakeVerdict = {
     deny: false;
@@ -54,7 +59,10 @@ export declare class FailureBrake {
      * Failures are counted even when the action is `log`, so switching to
      * `brake` reuses the history instead of starting blind.
      */
-    observe(tool: string, isError: boolean, now?: number): void;
+    observe(tool: string, isError: boolean, now?: number, error?: {
+        code?: string;
+        message?: string;
+    }): void;
     private cooldownMs;
     /**
      * Decide one dispatch.
@@ -73,6 +81,15 @@ export declare class FailureBrake {
     /** Test/report hook: tools currently braking. */
     openTools(now?: number): string[];
 }
+/**
+ * Turn an error code into one actionable next step.
+ *
+ * A brake that only says "no" pushes the retry onto a neighbouring tool; naming
+ * the likely cause lets the model change approach instead of repeating it. The
+ * mapping is deliberately narrow — it only speaks for codes whose meaning is
+ * unambiguous.
+ */
+export declare function suggestionFor(code: string | undefined): string;
 /**
  * Wire the brake into the two host waterfalls.
  *

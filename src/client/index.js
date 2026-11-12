@@ -65,6 +65,10 @@ window.__ModuleLoader__.load({
       neverBrake: '永不拦截的工具（逗号分隔）',
       retention: '数据保留天数',
       topN: '报告条目数',
+      dashboard: '网页仪表盘（Dashboard）',
+      dashboardEnabled: '启用 /keelwatch/dashboard 页面',
+      refreshSeconds: '页面刷新间隔（秒）',
+      dashboardHint: '开启后可用同一地址打开 /keelwatch/dashboard（需带 GUI 的 token）。关闭后该路由不再注册。',
     }
 
     function readJson(response) {
@@ -281,6 +285,17 @@ window.__ModuleLoader__.load({
           field(text.enabled, checkbox(cost.enabled, (e) => setConfig(update(config, 'costAttribution', 'enabled', e.target.checked)))),
           field(text.retention, numberInput(cost.retentionDays, (e) => setConfig(update(config, 'costAttribution', 'retentionDays', Number(e.target.value))), { min: 1, max: 365 })),
           field(text.topN, numberInput(cost.topN, (e) => setConfig(update(config, 'costAttribution', 'topN', Number(e.target.value))), { min: 1, max: 100 })),
+        ),
+        h(
+          'div',
+          { style: styles.card },
+          h('div', { style: styles.cardTitle }, text.dashboard),
+          field(text.dashboardEnabled, checkbox(config.dashboard.enabled, (e) => setConfig(update(config, 'dashboard', 'enabled', e.target.checked)))),
+          field(
+            text.refreshSeconds,
+            numberInput(config.dashboard.refreshSeconds, (e) => setConfig(update(config, 'dashboard', 'refreshSeconds', Number(e.target.value))), { min: 10, max: 600, step: 5 }),
+          ),
+          h('div', { style: styles.hint }, text.dashboardHint),
         ),
         h(
           'div',

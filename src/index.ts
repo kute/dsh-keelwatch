@@ -13,6 +13,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { normalizeConfig, type Config as ConfigShape } from './config.js'
 import { registerConfigApi } from './config-api.js'
+import { registerDashboard } from './dashboard.js'
 import { installCostAttribution, type CostLedger } from './cost-attribution.js'
 import { resolveDshHome, startDriftRadar } from './drift-radar.js'
 import { installFailureBrake, type BrakeState, type FailureBrake } from './failure-brake.js'
@@ -169,6 +170,26 @@ export function apply(ctx: Context, config: ConfigShape): void {
       registerConfigApi({ host, history, ...(webServer === undefined ? {} : { webServer }) })
     } catch (error) {
       host.logger?.warn(`keelwatch: config page disabled after load error: ${describe(error)}`)
+    }
+
+    // Opt-in: default off, so an install exposes no extra route until asked.
+    if (normalized.dashboard.enabled) {
+      try {
+        registerDashboard({
+          host,
+          ...(webServer === undefined ? {} : { webServer }),
+          ...(history === undefined ? {} : { history }),
+          ...(brake === undefined ? {} : { brake }),
+          ...(ledger === undefined ? {} : { ledger }),
+          ...(tokens === undefined ? {} : { tokens }),
+          driftConfig: normalized.driftRadar,
+          brakeConfig: normalized.failureBrake,
+          costConfig: normalized.costAttribution,
+          refreshSeconds: normalized.dashboard.refreshSeconds,
+        })
+      } catch (error) {
+        host.logger?.warn(`keelwatch: dashboard disabled after load error: ${describe(error)}`)
+      }
     }
   }
 
