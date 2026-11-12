@@ -11,6 +11,7 @@
  *   node scripts/market-index.mjs --check      # verify the existing index parses
  *                                              # and matches package.json
  */
+import { execFileSync } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,13 +33,36 @@ function isoHomepage(manifest) {
   return `${url.replace(/\.git$/, '')}#readme`
 }
 
-function buildIndex(manifest, timestamp) {
+/**
+ * Where this version installs from.
+ *
+ * `npm` is the default once the package is published. Until then `git` pins the
+ * exact commit, which the market installs as `git+<url>#<sha>` — and because
+ * `lib/` is committed, that install needs no build authorization.
+ */
+function gitSource(root) {
+  try {
+    const commit = execFileSync('/usr/bin/git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
+    const remote = execFileSync('/usr/bin/git', ['remote', 'get-url', 'origin'], { cwd: root, encoding: 'utf8' }).trim()
+    const url = remote.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '')
+    if (!/^[0-9a-f]{40}$/.test(commit) || !/^https:\/\//.test(url)) return null
+    return { type: 'git', url, commit }
+  } catch {
+    return null
+  }
+}
+
+function buildIndex(manifest, timestamp, sourceKind, root) {
   const homepage = isoHomepage(manifest)
   const engineRange = manifest.engines?.dsh
+  const git = sourceKind === 'git' ? gitSource(root) : null
+  if (sourceKind === 'git' && git === null) {
+    throw new Error('--source git needs a GitHub origin remote and a committed HEAD')
+  }
   const version = {
     version: manifest.version,
     publishTimestamp: timestamp,
-    source: { type: 'npm' },
+    source: git ?? { type: 'npm' },
     ...(engineRange === undefined ? {} : { engines: { dsh: engineRange } }),
   }
 
@@ -71,8 +95,9 @@ function buildIndex(manifest, timestamp) {
 
 const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
 const timestamp = Number(argOf('--timestamp', Math.floor(Date.now() / 1000)))
+const sourceKind = argOf('--source', 'npm')
 
-const index = buildIndex(manifest, timestamp)
+const index = buildIndex(manifest, timestamp, sourceKind, root)
 
 if (checking) {
   let existing
