@@ -49,6 +49,10 @@ Requires `engines.dsh: >=0.2.1-0 <0.3.0-0` (covers DSH 0.2.1.x / 0.2.2.x), Node 
 Two ways, same result:
 
 1. **Web GUI** — Plugins → `@kutebai/dsh-keelwatch` → the configuration section. Saving validates the values, writes only this plugin's row into the profile patch (after backing the file up), and lets the Loader reload it.
+
+   ![config page](https://kute.github.io/dsh-keelwatch/images/config-form.png)
+
+   ![dashboard toggle and entry point](https://kute.github.io/dsh-keelwatch/images/config-dashboard.png)
 2. **YAML** — edit `~/.dsh/profiles/<profile>/cordis.patch.yml` directly.
 
 ```yaml
