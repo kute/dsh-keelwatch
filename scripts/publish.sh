@@ -69,9 +69,12 @@ else
 fi
 
 say "更新 GitHub Release 附件"
-TARBALL="$(ls -t ./*.tgz 2>/dev/null | head -1 || true)"
-if [ -n "$TARBALL" ]; then
+# pnpm names a scoped tarball by flattening the scope: @kutebai/x -> kutebai-x
+TARBALL="$(printf '%s-%s.tgz' "${PKG_NAME#@}" "$PKG_VERSION" | tr '/' '-')"
+if [ -f "$TARBALL" ]; then
   gh release upload "v$PKG_VERSION" "$TARBALL" --repo kute/dsh-keelwatch --clobber
+else
+  say "未找到 $TARBALL，跳过附件更新（先执行 pnpm pack）"
 fi
 
 say "完成：https://www.npmjs.com/package/$PKG_NAME"
