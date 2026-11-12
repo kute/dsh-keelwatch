@@ -266,11 +266,20 @@ export function summarize(report: DriftReport): string {
  * `@deepseek-ai/cordis-plugin-timer`) so the interval dies with the fiber; a
  * bare `setInterval` would keep the process awake after unload.
  */
-export function startDriftRadar(host: KeelwatchHost, config: DriftRadarConfig): void {
+export function startDriftRadar(
+  host: KeelwatchHost,
+  config: DriftRadarConfig,
+  onReport?: (report: DriftReport) => void,
+): void {
   const run = (): void => {
     void scanDrift(config)
       .then((report) => {
         if (report.findings.length > 0) host.logger?.warn(summarize(report))
+        try {
+          onReport?.(report)
+        } catch {
+          // A history hook must never fail the scan that produced the data.
+        }
       })
       .catch((error: unknown) => {
         host.logger?.warn(`keelwatch: drift scan failed: ${error instanceof Error ? error.message : String(error)}`)

@@ -60,6 +60,35 @@ Two ways, same result:
       toolToBundle: {}
 ```
 
+## How detection runs
+
+| Check | When |
+|:---|:---|
+| Bundle health (any failed load?) | 5 s after startup, then on every `checkIntervalHours` |
+| Dependency drift | At startup, then every `checkIntervalHours` |
+| Failure brake | Real time: counted after each call, enforced before the next |
+| Token / latency | Accumulated in real time, summarised on demand |
+
+`checkIntervalHours` (default 24, `0` = startup only) is the single frequency knob.
+
+## How you get told
+
+1. **Logs** — serious findings also go to `stderr` (e.g. `~/Library/Logs/dsh-web.err.log`), so they survive without opening a session.
+2. **Plugin page** — a *recent detections* list with time, level, and a bilingual line per entry.
+3. **Chat** — `keelwatch_report` for the full report plus a conclusion.
+
+It never injects monitoring noise into your conversation: push costs context, pull is cleaner.
+
+## Where the history lives
+
+| Where | What |
+|:---|:---|
+| Plugin page → recent detections | Last 20 entries: time, level, ZH + EN |
+| `~/.dsh/keelwatch/history.jsonl` | Raw records (`kind`/`level`/`en`/`zh`/`detail`/`at`) |
+| `GET /keelwatch/history?limit=50` | Same data over HTTP (needs the GUI token) |
+
+Pruned by `costAttribution.retentionDays` (default 7) and capped at 500 entries.
+
 ## The report
 
 ```

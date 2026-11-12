@@ -408,11 +408,19 @@ export function registerReportTool(deps: ReportDeps): boolean {
  * a service without the injection requirement, which is why it is tried too.
  */
 function resolveRegistry(deps: ReportDeps): { register(tool: unknown): unknown } | null {
-  const candidates: unknown[] = [deps.registry, deps.host.tools]
+  const candidates: unknown[] = [deps.registry]
+  // Every read goes through a guarded lookup: a Cordis context throws when an
+  // un-injected service is read as a property, and that throw used to escape
+  // here and silently disable the tool.
   try {
     candidates.push(deps.host.reflect?.get('tools'))
   } catch {
-    // No reflect on this host; the property candidates still apply.
+    // Normal on hosts without a reflect layer.
+  }
+  try {
+    candidates.push(typeof deps.host.get === 'function' ? deps.host.get('tools') : undefined)
+  } catch {
+    // Same story for `ctx.get` on a context that does not expose it.
   }
   for (const candidate of candidates) {
     if (typeof candidate !== 'object' || candidate === null) continue

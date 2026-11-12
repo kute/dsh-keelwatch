@@ -47,6 +47,9 @@ export interface PluginManagerLike {
 
 export interface ManagerHost {
   readonly reflect?: { get(name: string): unknown }
+  /** `ctx.get` — the guarded way to reach an un-injected service. */
+  readonly get?: (name: string) => unknown
+  /** Only safe when the host mixes the service in; never read directly. */
   readonly pluginManager?: unknown
   readonly logger?: WarnSink
 }
@@ -85,7 +88,11 @@ export function resolvePluginManager(host: ManagerHost): PluginManagerLike | nul
     // The plain property read throws on a context whose fiber did not inject the
     // service ("cannot get property \"pluginManager\" without inject"); probing a
     // service may degrade to "unavailable", never fail the inventory.
-    candidates.push(host.pluginManager)
+    try {
+    candidates.push(typeof host.get === 'function' ? host.get('pluginManager') : undefined)
+  } catch {
+    // Un-injected property read throws on a Cordis context; skip it.
+  }
   } catch {
     // `reflect.get` above is the sanctioned read; keep whatever it returned.
   }

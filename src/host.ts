@@ -52,10 +52,22 @@ export interface KeelwatchHost {
   on(event: string, listener: (...args: any[]) => unknown): unknown
   /** Run a disposer-scoped effect; used for the final state flush. */
   effect?(execute: () => (() => unknown) | void): unknown
-  /** Optional-service lookup. */
+  /**
+   * Service lookup that requires no injection (`ctx.get`).
+   *
+   * Reads through `reflect`/`get` are the ONLY safe way to reach an
+   * un-injected service: touching the property instead (for example
+   * `ctx.tools`) throws `cannot get property "tools" without inject`, which is
+   * exactly how the report tool went missing once.
+   */
   readonly reflect?: HostReflect
-  /** Tool registry, when the profile provides it. */
-  readonly tools?: { register(tool: unknown): unknown }
+  readonly get?: (name: string) => unknown
+  /**
+   * Not safe to read on a Cordis context proxy unless `tools` is injected.
+   * Kept optional for hosts that mix the service in; always access it through
+   * {@link safeService} instead of directly.
+   */
+  readonly tools?: unknown
   /** Profile bundle management, when the profile provides it. */
   readonly pluginManager?: unknown
 }

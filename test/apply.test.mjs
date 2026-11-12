@@ -54,7 +54,7 @@ function baseConfig(overrides) {
 
 test('the module exports exactly the three faces a Cordis bundle needs', () => {
   assert.equal(name, 'keelwatch')
-  assert.deepEqual(inject, ['timer'])
+  assert.deepEqual(inject, ['timer', 'tools'])
   assert.equal(typeof Config, 'function')
   assert.equal(typeof apply, 'function')
 })
@@ -128,14 +128,14 @@ test('the report tool is registered through ctx.inject, not by assuming ctx.tool
     timer: { interval: () => {}, timeout: () => () => {} },
     inject: (deps, callback) => {
       injected.push(deps)
-      if (deps.includes('tools')) callback({ tools: { register: (tool) => registered.push(tool.name) } })
-      else callback({ webServer: { register: () => () => {} } })
+      callback({ webServer: { register: () => () => {} } })
       return {}
     },
+    // `tools` is a static inject, so the plugin reads it as a property.
+    tools: { register: (tool) => registered.push(tool.name) },
   }
   apply(host, baseConfig({}))
-  // Both optional services are consumed through injection, never by probing.
-  assert.deepEqual(injected.map((deps) => deps[0]).sort(), ['tools', 'webServer'])
+  assert.deepEqual(injected.map((deps) => deps[0]), ['webServer'])
   assert.deepEqual(registered, ['keelwatch_report'])
 })
 
@@ -148,7 +148,9 @@ test('the drift radar scans once at startup and schedules the configured period'
     apply(host, baseConfig({
       driftRadar: { ...baseConfig({}).driftRadar, enabled: true, checkIntervalHours: 6 },
     }))
-    assert.deepEqual(timers, [6 * 3_600_000])
+    // One timer keeps the drift radar periodic, one keeps bundle health on the
+    // same period: `checkIntervalHours` answers "how often does this look?".
+    assert.equal(timers.filter((ms) => ms === 6 * 3_600_000).length, 2)
   } finally {
     if (previous === undefined) delete process.env.DSH_HOME
     else process.env.DSH_HOME = previous

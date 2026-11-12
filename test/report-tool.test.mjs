@@ -69,8 +69,18 @@ test('a disabled brake and ledger are reported as such, not omitted', withTempHo
 
 test('the tool refuses a disable without a bundle name instead of guessing', withTempHome(async () => {
   const registered = []
-  const host = baseHost({ tools: { register: (tool) => registered.push(tool) } })
-  assert.equal(registerReportTool({ host, driftConfig: DEFAULTS.driftRadar, costConfig: DEFAULTS.costAttribution }), true)
+  const host = baseHost()
+  // The registry arrives through injection; reading `host.tools` would throw on
+  // a real Cordis context, which is why it is passed explicitly.
+  assert.equal(
+    registerReportTool({
+      host,
+      registry: { register: (tool) => registered.push(tool) },
+      driftConfig: DEFAULTS.driftRadar,
+      costConfig: DEFAULTS.costAttribution,
+    }),
+    true,
+  )
   assert.equal(registered.length, 1)
 
   const tool = registered[0]

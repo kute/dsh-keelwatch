@@ -18,6 +18,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Config, DEFAULTS, normalizeConfig, type Config as ConfigShape } from './config.js'
 import type { KeelwatchHost } from './host.js'
+import type { HistoryLog } from './history.js'
 import { ROW_ID, readRowConfig, writeRowConfig } from './patch-writer.js'
 
 const ROUTE_PATH = '/keelwatch/config'
@@ -45,6 +46,8 @@ interface ConfigEditorLike {
 
 export interface ConfigApiDeps {
   readonly host: KeelwatchHost
+  /** Detection history; served at GET /keelwatch/history when present. */
+  readonly history?: HistoryLog
   /**
    * Webserver handed over by `ctx.inject(['webServer'])`.
    *
@@ -216,6 +219,32 @@ export function registerConfigApi(deps: ConfigApiDeps): boolean {
       // The server may already be torn down during profile shutdown.
     }
   })
+  if (deps.history !== undefined) {
+    const historyLog = deps.history
+    const disposeHistory = webServer.register({
+      kind: 'exact',
+      path: '/keelwatch/history',
+      async handler(req, res) {
+        if (req.method !== 'GET') return send(res, 405, { ok: false, reason: 'GET only' })
+        try {
+          const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+          const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') ?? 20) || 20))
+          const entries = await historyLog.read(limit)
+          return send(res, 200, { ok: true, count: entries.length, entries })
+        } catch (error) {
+          return send(res, 500, { ok: false, reason: error instanceof Error ? error.message : String(error) })
+        }
+      },
+    })
+    host.effect?.(() => () => {
+      try {
+        disposeHistory()
+      } catch {
+        // Already torn down with the server.
+      }
+    })
+  }
+
   host.logger?.info?.(`keelwatch: config page served at ${ROUTE_PATH}`)
   return true
 }

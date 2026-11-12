@@ -37,6 +37,13 @@ window.__ModuleLoader__.load({
       failed: '保存失败',
       loadFailed: '读取配置失败',
       overridden: '保存会写入 profile 的 cordis.patch.yml（整行 config 替换），并先备份原文件。',
+      history: '最近检测记录（新→旧）',
+      historyEmpty: '还没有检测记录。插件启动后会检查一次插件包，漂移扫描按「扫描间隔」进行。',
+      historyFailed: '读取历史失败',
+      levelOk: '正常',
+      levelInfo: '提示',
+      levelWarn: '注意',
+      levelError: '故障',
       unmanaged: '该 profile 尚未有针对本插件的 patch 行；保存后会创建一行并接管配置。',
       drift: '漂移雷达（Drift Radar）',
       brake: '失败刹车（Failure Brake）',
@@ -124,6 +131,8 @@ window.__ModuleLoader__.load({
       const [documentPath, setDocumentPath] = React.useState(null)
       const [managed, setManaged] = React.useState(true)
       const [backupPath, setBackupPath] = React.useState(null)
+      const [history, setHistory] = React.useState([])
+      const [historyError, setHistoryError] = React.useState(null)
 
       React.useEffect(() => {
         let alive = true
@@ -141,6 +150,16 @@ window.__ModuleLoader__.load({
           })
           .catch((failure) => {
             if (alive) setError(`${text.loadFailed}: ${failure.message}`)
+          })
+        fetch('/keelwatch/history?limit=20', { headers: { accept: 'application/json' } })
+          .then(readJson)
+          .then((payload) => {
+            if (!alive) return
+            if (payload.ok) setHistory(Array.isArray(payload.entries) ? payload.entries : [])
+            else setHistoryError(`${text.historyFailed}: ${payload.reason}`)
+          })
+          .catch((failure) => {
+            if (alive) setHistoryError(`${text.historyFailed}: ${failure.message}`)
           })
         return () => {
           alive = false
@@ -180,6 +199,48 @@ window.__ModuleLoader__.load({
         { style: styles.wrapper },
         h('div', { style: styles.header }, h('div', { style: styles.title }, text.title), h('div', { style: styles.hint }, text.intro)),
         documentPath === null ? null : h('div', { style: styles.hint }, `${text.documentPath}: ${documentPath}`),
+        h(
+          'div',
+          { style: styles.card },
+          h('div', { style: styles.cardTitle }, text.history),
+          historyError === null ? null : h('div', { style: styles.error }, historyError),
+          history.length === 0
+            ? h('div', { style: styles.hint }, text.historyEmpty)
+            : h(
+                'div',
+                { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
+                history.map((entry, index) =>
+                  h(
+                    'div',
+                    { key: `${entry.at}-${index}`, style: { display: 'flex', flexDirection: 'column', gap: '1px' } },
+                    h(
+                      'div',
+                      { style: { fontSize: '12px', display: 'flex', gap: '8px' } },
+                      h('span', { style: { opacity: 0.55, fontVariantNumeric: 'tabular-nums' } }, new Date(entry.at).toLocaleString()),
+                      h(
+                        'span',
+                        {
+                          style: {
+                            opacity: 0.85,
+                            color:
+                              entry.level === 'error' ? '#e5674f' : entry.level === 'warn' ? '#d99b2b' : 'inherit',
+                          },
+                        },
+                        entry.level === 'error'
+                          ? text.levelError
+                          : entry.level === 'warn'
+                            ? text.levelWarn
+                            : entry.level === 'info'
+                              ? text.levelInfo
+                              : text.levelOk,
+                      ),
+                    ),
+                    h('div', { style: { fontSize: '12px' } }, entry.zh),
+                    h('div', { style: { fontSize: '11px', opacity: 0.5 } }, entry.en),
+                  ),
+                ),
+              ),
+        ),
         managed ? null : h('div', { style: styles.hint }, text.unmanaged),
         backupPath === null ? null : h('div', { style: styles.hint }, `backup: ${backupPath}`),
         h(
