@@ -21,7 +21,14 @@ test('the index agrees with package.json on the engine range the host re-checks'
   const index = parseMarketIndex(JSON.parse(raw), 'https://kute.github.io/dsh-keelwatch/index.json')
   const version = index.plugins[0].versions[0]
   assert.equal(version.engines.dsh, manifest.engines.dsh)
-  assert.equal(marketInstallTarget(index.plugins[0].name, version).spec, `${manifest.name}@${manifest.version}`)
+  // The install spec follows the source kind: npm pins name@version, git pins
+  // the exact commit.
+  const target = marketInstallTarget(index.plugins[0].name, version)
+  if (version.source.type === 'git') {
+    assert.match(target.spec, /^git\+https:\/\/github\.com\/kute\/dsh-keelwatch#[0-9a-f]{40}$/)
+  } else {
+    assert.equal(target.spec, `${manifest.name}@${manifest.version}`)
+  }
 })
 
 test('the published tarball carries the bundle patch the profile launcher needs', () => {
