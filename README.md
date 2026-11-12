@@ -2,6 +2,10 @@
 
 English | [中文](README.zh.md)
 
+![dashboard](docs/images/dashboard.png)
+
+> The image above uses the dashboard's sample-data mode (`?demo=1`) to show the layout; a live page shows your own sessions.
+
 The **operations layer** for a DeepSeek Harness (DSH) plugin ecosystem. Once you install a dozen plugins, you need something that watches *them*. keelwatch adds no agent capability — it fixes three concrete problems:
 
 | Problem | What you see | What keelwatch does |
@@ -18,8 +22,11 @@ A DSH **profile** (`~/.dsh/profiles/<name>/`) is a composition of plugins. The u
 ## Install
 
 ```sh
-# 1) tarball from the GitHub release
-dsh plugin --profile <profile> add ./kute-dsh-keelwatch-0.1.0.tgz
+# 1) from npm (recommended: prebuilt, no build authorization)
+dsh plugin --profile <profile> add @kutebai/dsh-keelwatch
+
+# 1b) tarball from the GitHub release
+dsh plugin --profile <profile> add ./kutebai-dsh-keelwatch-0.2.0.tgz
 
 # 2) straight from the repository (build output is committed, no build授权 needed)
 dsh plugin --profile <profile> add github:kute/dsh-keelwatch
@@ -67,6 +74,9 @@ Two ways, same result:
       retentionDays: 7
       topN: 10
       toolToBundle: {}
+    dashboard:
+      enabled: false        # opt-in: serves /keelwatch/dashboard
+      refreshSeconds: 30    # 10-600
 ```
 
 ## Dashboard (opt-in, off by default)

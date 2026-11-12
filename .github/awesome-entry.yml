@@ -9,4 +9,4 @@ description:
   zh: '检查已装 DSH 插件的加载失败与依赖漂移，给反复失败的工具加冷却刹车，并按消息来源归因 token 成本。'
 # 仓库发布的 npm 包是 @kutebai/dsh-keelwatch；这里给 Release 上的预构建 tarball，
 # 钉住 tag，资产名带版本号也不会随下次发版 404。
-tarball: https://github.com/kute/dsh-keelwatch/releases/download/v0.1.0/kutebai-dsh-keelwatch-0.1.0.tgz
+tarball: https://github.com/kute/dsh-keelwatch/releases/download/v0.2.0/kutebai-dsh-keelwatch-0.2.0.tgz

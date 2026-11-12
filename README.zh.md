@@ -4,6 +4,10 @@
 
 给 DeepSeek Harness（DSH）装了很多插件之后，你需要一个**看住这些插件的东西**。keelwatch 就是它。
 
+![dashboard](docs/images/dashboard.png)
+
+> 上图是`/keelwatch/dashboard` 的示例数据模式（`?demo=1`），用于展示布局；真实页面显示你自己的会话数据。
+
 它不给你新功能，只解决三个具体麻烦：**插件哪天突然坏了没人告诉你**、**一个工具反复失败把会话拖垮**、**不知道谁在吃 Token 和时间**。
 
 ---
@@ -140,7 +144,7 @@ http://127.0.0.1:3080/keelwatch/dashboard?token=<你的 GUI token>
 | 位置 | 内容 |
 |:---|:---|
 | **配置页 → 最近检测记录** | 最近 20 条，时间 / 级别（正常·提示·注意·故障）/ 中文摘要 + 英文一行 |
-| **网页仪表盘**（需开启） | `/keelwatch/dashboard`，六块聚合 + 30 秒自动刷新 |
+| **网页仪表盘**（需开启） | `/keelwatch/dashboard`，六块聚合 + 30 秒自动刷新；`?demo=1` 为示例数据 |
 | `~/.dsh/keelwatch/history.jsonl` | 原始记录，一行一条 JSON（`kind`/`level`/`en`/`zh`/`detail`/`at`） |
 | `GET /keelwatch/history?limit=50` | 同上的 HTTP 形式（需要 GUI token） |
 
@@ -179,6 +183,13 @@ http://127.0.0.1:3080/keelwatch/dashboard?token=<你的 GUI token>
 | `retentionDays` | `7` | 本地记录保留天数 |
 | `topN` | `10` | 报告每张表显示几条 |
 | `toolToBundle` | `{}` | 工具名 → 包名的人工映射（推断"哪个插件的工具"用） |
+
+### 网页仪表盘（Dashboard）
+
+| 键 | 默认 | 意思 |
+|:---|:---|:---|
+| `enabled` | `false` | 是否注册 `/keelwatch/dashboard` 与 `/keelwatch/status` 两个路由 |
+| `refreshSeconds` | `30` | 页面自动刷新间隔（钳制 10–600） |
 
 ---
 
@@ -240,8 +251,11 @@ keelwatch status report · keelwatch 状态报告
 ## 六、安装
 
 ```sh
-# 1) 从 GitHub Release 的 tarball（离线可用）
-dsh plugin --profile <profile> add ./kute-dsh-keelwatch-0.1.0.tgz
+# 1) 从 npm（推荐，免构建授权）
+dsh plugin --profile <profile> add @kutebai/dsh-keelwatch
+
+# 1b) 从 GitHub Release 的 tarball（离线可用）
+dsh plugin --profile <profile> add ./kutebai-dsh-keelwatch-0.2.0.tgz
 
 # 2) 从仓库直装（产物已入库，安装时不跑构建脚本、无需授权）
 dsh plugin --profile <profile> add github:kute/dsh-keelwatch

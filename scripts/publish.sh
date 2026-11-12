@@ -55,6 +55,11 @@ if [ "$DRY_RUN" -eq 1 ]; then
   exit 0
 fi
 
+# Pack first: `npm publish` consumes a temporary tarball and leaves nothing on
+# disk, so the release asset step below would otherwise find no file.
+say "打包（供 Release 附件使用）"
+pnpm pack >/dev/null
+
 say "发布到 npm"
 if [ -n "$OTP" ]; then
   npm publish --registry="$REGISTRY" --access public --otp="$OTP"
