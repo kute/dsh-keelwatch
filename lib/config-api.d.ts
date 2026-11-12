@@ -1,5 +1,5 @@
 import { type Config as ConfigShape } from './config.js';
-import type { KeelwatchHost } from './host.js';
+import { type KeelwatchHost } from './host.js';
 import type { HistoryLog } from './history.js';
 export interface ConfigApiDeps {
     readonly host: KeelwatchHost;

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DEFAULTS } from '../lib/config.js'
-import { collectStatus, registerDashboard } from '../lib/dashboard.js'
+import { buildTrend, collectStatus, registerDashboard } from '../lib/dashboard.js'
 import { FailureBrake } from '../lib/failure-brake.js'
 import { CostLedger } from '../lib/cost-attribution.js'
 import { HistoryLog, historyPath } from '../lib/history.js'
@@ -128,4 +128,72 @@ test('non-GET requests are refused', async () => {
     },
   )
   assert.equal(code, 405)
+})
+
+test('trend buckets the last seven days and keeps empty days as zeros', () => {
+  const now = Date.UTC(2026, 10, 12, 12)
+  const day = 86_400_000
+  const trend = buildTrend(
+    [
+      { at: now, kind: 'bundle', level: 'ok', en: '', zh: '' },
+      { at: now, kind: 'bundle', level: 'error', en: '', zh: '' },
+      { at: now - day, kind: 'drift', level: 'warn', en: '', zh: '' },
+      { at: now - 30 * day, kind: 'drift', level: 'warn', en: '', zh: '' },
+    ],
+    7,
+    now,
+  )
+  assert.equal(trend.length, 7)
+  assert.equal(trend.at(-1).date, '2026-11-12')
+  assert.deepEqual({ ok: trend.at(-1).ok, error: trend.at(-1).error }, { ok: 1, error: 1 })
+  assert.equal(trend.at(-2).warn, 1)
+  // An older-than-window entry is dropped, and a silent day stays at zero.
+  assert.equal(trend.at(1).warn, 0)
+  assert.equal(trend.reduce((sum, d) => sum + d.warn, 0), 1)
+})
+
+test('with a Web app present, both routes require the GUI token', async () => {
+  const routes = []
+  const webServer = {
+    register(route) {
+      routes.push(route)
+      return () => {}
+    },
+  }
+  const deps = baseDeps({ webServer })
+  deps.host.reflect = {
+    get: (name) => (name === 'webApp' ? { getAdvertisedUrl: () => 'http://127.0.0.1:3080/?token=secret-token' } : undefined),
+  }
+  registerDashboard(deps)
+
+  const page = routes.find((route) => route.path === '/keelwatch/dashboard')
+  const call = async (url) => {
+    let code = null
+    await page.handler(
+      { method: 'GET', headers: {}, url },
+      {
+        writeHead: (value) => {
+          code = value
+        },
+        end: () => {},
+      },
+    )
+    return code
+  }
+
+  assert.equal(await call('/keelwatch/dashboard'), 401)
+  assert.equal(await call('/keelwatch/dashboard?token=wrong'), 401)
+  assert.equal(await call('/keelwatch/dashboard?token=secret-token'), 200)
+  // The header form is accepted too, for callers that cannot put it in the URL.
+  let code = null
+  await page.handler(
+    { method: 'GET', headers: { 'x-dsh-token': 'secret-token' }, url: '/keelwatch/dashboard' },
+    {
+      writeHead: (value) => {
+        code = value
+      },
+      end: () => {},
+    },
+  )
+  assert.equal(code, 200)
 })

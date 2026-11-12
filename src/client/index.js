@@ -25,6 +25,8 @@ window.__ModuleLoader__.load({
     const inject = ['slots']
 
     const ENDPOINT = '/keelwatch/config'
+/** The GUI token lives in the page URL; our routes verify it. */
+const TOKEN_QUERY = window.location.search || ''
     const HEADER = 'x-keelwatch-config'
 
     const text = {
@@ -68,7 +70,9 @@ window.__ModuleLoader__.load({
       dashboard: '网页仪表盘（Dashboard）',
       dashboardEnabled: '启用 /keelwatch/dashboard 页面',
       refreshSeconds: '页面刷新间隔（秒）',
-      dashboardHint: '开启后可用同一地址打开 /keelwatch/dashboard（需带 GUI 的 token）。关闭后该路由不再注册。',
+      dashboardHint: '开启后可从下方链接打开。关闭后该路由不再注册。',
+      openDashboard: '打开仪表盘 ↗',
+      dashboardDisabled: '仪表盘未启用：勾选上面的开关并保存后再打开。',
     }
 
     function readJson(response) {
@@ -140,7 +144,7 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         let alive = true
-        fetch(ENDPOINT, { headers: { accept: 'application/json' } })
+        fetch(ENDPOINT + TOKEN_QUERY, { headers: { accept: 'application/json' } })
           .then(readJson)
           .then((payload) => {
             if (!alive) return
@@ -155,7 +159,7 @@ window.__ModuleLoader__.load({
           .catch((failure) => {
             if (alive) setError(`${text.loadFailed}: ${failure.message}`)
           })
-        fetch('/keelwatch/history?limit=20', { headers: { accept: 'application/json' } })
+        fetch('/keelwatch/history?limit=20' + (TOKEN_QUERY ? '&' + TOKEN_QUERY.slice(1) : ''), { headers: { accept: 'application/json' } })
           .then(readJson)
           .then((payload) => {
             if (!alive) return
@@ -177,7 +181,7 @@ window.__ModuleLoader__.load({
         setBusy(true)
         setStatus(null)
         setError(null)
-        fetch(ENDPOINT, {
+        fetch(ENDPOINT + TOKEN_QUERY, {
           method: 'POST',
           headers: { 'content-type': 'application/json', [HEADER]: '1' },
           body: JSON.stringify(config),
@@ -296,6 +300,18 @@ window.__ModuleLoader__.load({
             numberInput(config.dashboard.refreshSeconds, (e) => setConfig(update(config, 'dashboard', 'refreshSeconds', Number(e.target.value))), { min: 10, max: 600, step: 5 }),
           ),
           h('div', { style: styles.hint }, text.dashboardHint),
+          config.dashboard.enabled
+            ? h(
+                'a',
+                {
+                  href: '/keelwatch/dashboard' + (window.location.search || ''),
+                  target: '_blank',
+                  rel: 'noreferrer',
+                  style: { fontSize: '12px', color: '#4f8cff' },
+                },
+                text.openDashboard,
+              )
+            : h('div', { style: styles.hint }, text.dashboardDisabled),
         ),
         h(
           'div',

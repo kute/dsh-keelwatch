@@ -73,3 +73,19 @@ export interface KeelwatchHost {
     /** Profile bundle management, when the profile provides it. */
     readonly pluginManager?: unknown;
 }
+/**
+ * The GUI's access token, or `null` when this profile has no Web app.
+ *
+ * `webApp.getAdvertisedUrl()` is the advertised entry URL and carries it as
+ * `?token=`. Reading it is the only way for a plugin to know what the GUI
+ * expects; the `/api` fence is not reusable from an arbitrary route.
+ */
+export declare function expectedGuiToken(host: KeelwatchHost): string | null;
+/**
+ * Whether a request carries the GUI token.
+ *
+ * When the profile has no Web app (headless, SDK) there is nothing to compare
+ * against and the route is local-only anyway, so the caller decides what to do
+ * with a `null` expectation.
+ */
+export declare function carriesGuiToken(url: string | undefined, headers: Record<string, unknown>, expected: string): boolean;

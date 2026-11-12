@@ -29,6 +29,9 @@ function loadWithStub(sourceText) {
   }
   const sandbox = {
     window: {
+      // The real client runtime provides a location; the page reads `?token=`
+      // from it, so the stub must expose one too.
+      location: { search: '' },
       __ModuleLoader__: {
         load(spec) {
           registered = spec

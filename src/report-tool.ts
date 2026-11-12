@@ -120,7 +120,11 @@ async function driftSection(deps: ReportDeps): Promise<{ section: Section; repor
     const lines = [
       `${report.bundlesScanned} package(s) scanned, ${findings.length} finding(s) 个包，${findings.length} 处发现`,
       `alertLevel=${deps.driftConfig.alertLevel} · 告警级别`,
-      ...findings.map((finding) => `  - [${finding.level}] ${finding.message}`),
+      ...findings.flatMap((finding) =>
+        finding.suggestion === undefined
+          ? [`  - [${finding.level}] ${finding.message}`]
+          : [`  - [${finding.level}] ${finding.message}`, `      → ${finding.suggestion}`],
+      ),
     ]
     return {
       report,

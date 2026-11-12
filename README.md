@@ -89,7 +89,11 @@ dashboard:
   refreshSeconds: 30  # 10–600
 ```
 
-Then open `http://127.0.0.1:3080/keelwatch/dashboard?token=<your GUI token>`. One page shows bundle health, dependency drift, brake state, per-tool latency (calls/errors/total/p95), token cost by source with the most expensive individual messages, and recent detection history. It is plain HTML — no client build, no dependency on the client plugin loading — and turning the switch off unregisters both routes.
+Turn it on and a **"open dashboard ↗"** link appears in the plugin's Dashboard card (it carries the GUI token). Or open `/keelwatch/dashboard?token=<GUI token>` directly — the page is standalone, not a section in the sidebar.
+
+The page shows bundle health, dependency drift with fix suggestions, brake state, per-tool latency (calls/errors/total/p95), token cost by source with the most expensive messages, a **7-day detection trend**, and recent history.
+
+Both routes verify the GUI token (query parameter, `x-dsh-token` header, or `dsh_token` cookie) because the host's `/api` fence does not cover custom paths; anything else gets 401. It is plain HTML — no client build, no dependency on the client plugin loading — and turning the switch off unregisters both routes.
 
 ## How detection runs
 

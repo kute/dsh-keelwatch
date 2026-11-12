@@ -14,11 +14,12 @@ function tempPatch(initial = '[]\n') {
   return { path, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
 }
 
-function makeHost({ documentPath, webServer } = {}) {
+function makeHost({ documentPath, webServer, extraServices = {} } = {}) {
   const routes = []
   const warnings = []
   const services = {
     configEditor: documentPath === undefined ? undefined : { documentPath },
+    ...extraServices,
   }
   const resolvedWebServer =
     webServer === undefined
@@ -54,10 +55,11 @@ function makeRes() {
   }
 }
 
-function makeReq({ method = 'GET', headers = {}, body } = {}) {
+function makeReq({ method = 'GET', headers = {}, body, url = '/' } = {}) {
   return {
     method,
     headers,
+    url,
     async *[Symbol.asyncIterator]() {
       if (body !== undefined) yield Buffer.from(body, 'utf8')
     },
@@ -190,3 +192,21 @@ async function writeRowConfigForTest(path) {
   const { writeRowConfig } = await import('../lib/patch-writer.js')
   await writeRowConfig(path, { driftRadar: { enabled: false } })
 }
+
+test('with a Web app present the config endpoint requires the GUI token', async () => {
+  const { path: patchPath, cleanup } = tempPatch()
+  const { host, routes } = makeHost({
+    documentPath: patchPath,
+    extraServices: { webApp: { getAdvertisedUrl: () => 'http://127.0.0.1:3080/?token=tok' } },
+  })
+  registerConfigApi({ host })
+
+  const unauthorized = makeRes()
+  await routes[0].handler(makeReq({ method: 'GET', url: '/keelwatch/config' }), unauthorized)
+  assert.equal(unauthorized.status, 401)
+
+  const authorized = makeRes()
+  await routes[0].handler(makeReq({ method: 'GET', url: '/keelwatch/config?token=tok' }), authorized)
+  assert.equal(authorized.status, 200)
+  cleanup()
+})

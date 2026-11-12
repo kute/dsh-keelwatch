@@ -71,3 +71,43 @@ export interface KeelwatchHost {
   /** Profile bundle management, when the profile provides it. */
   readonly pluginManager?: unknown
 }
+
+/**
+ * The GUI's access token, or `null` when this profile has no Web app.
+ *
+ * `webApp.getAdvertisedUrl()` is the advertised entry URL and carries it as
+ * `?token=`. Reading it is the only way for a plugin to know what the GUI
+ * expects; the `/api` fence is not reusable from an arbitrary route.
+ */
+export function expectedGuiToken(host: KeelwatchHost): string | null {
+  try {
+    const app = host.reflect?.get('webApp') as { getAdvertisedUrl?: () => string } | undefined
+    if (typeof app?.getAdvertisedUrl !== 'function') return null
+    const advertised = app.getAdvertisedUrl()
+    const token = new URL(advertised).searchParams.get('token')
+    return token === null || token === '' ? null : token
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Whether a request carries the GUI token.
+ *
+ * When the profile has no Web app (headless, SDK) there is nothing to compare
+ * against and the route is local-only anyway, so the caller decides what to do
+ * with a `null` expectation.
+ */
+export function carriesGuiToken(url: string | undefined, headers: Record<string, unknown>, expected: string): boolean {
+  try {
+    const parsed = new URL(url ?? '/', 'http://127.0.0.1')
+    if (parsed.searchParams.get('token') === expected) return true
+    const header = headers['x-dsh-token']
+    if (typeof header === 'string' && header === expected) return true
+    const cookie = headers['cookie']
+    if (typeof cookie === 'string' && cookie.split(';').some((part) => part.trim() === `dsh_token=${expected}`)) return true
+  } catch {
+    // Malformed request target: treat as unauthorized.
+  }
+  return false
+}

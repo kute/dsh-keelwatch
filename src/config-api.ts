@@ -17,7 +17,7 @@
  */
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Config, DEFAULTS, normalizeConfig, type Config as ConfigShape } from './config.js'
-import type { KeelwatchHost } from './host.js'
+import { carriesGuiToken, expectedGuiToken, type KeelwatchHost } from './host.js'
 import type { HistoryLog } from './history.js'
 import { ROW_ID, readRowConfig, writeRowConfig } from './patch-writer.js'
 
@@ -152,11 +152,21 @@ export function registerConfigApi(deps: ConfigApiDeps): boolean {
     return false
   }
 
+  // Same reasoning as the dashboard: a custom path is outside the host's /api
+  // fence, and GET here exposes the plugin configuration while POST rewrites it.
+  const expected = expectedGuiToken(host)
+  if (expected === null) {
+    host.logger?.warn('keelwatch: config endpoint served without a token check (no webApp service in this profile)')
+  }
+  const authorized = (req: IncomingMessage): boolean =>
+    expected === null || carriesGuiToken(req.url, req.headers as Record<string, unknown>, expected)
+
   const dispose = webServer.register({
     kind: 'exact',
     path: ROUTE_PATH,
     async handler(req, res) {
       try {
+        if (!authorized(req)) return send(res, 401, { ok: false, reason: 'unauthorized' })
         if (req.method === 'GET') {
           const documentPath = patchPathOf(host)
           if (documentPath === null) return send(res, 503, { ok: false, reason: 'profile patch not resolvable' })
@@ -225,6 +235,7 @@ export function registerConfigApi(deps: ConfigApiDeps): boolean {
       kind: 'exact',
       path: '/keelwatch/history',
       async handler(req, res) {
+        if (!authorized(req)) return send(res, 401, { ok: false, reason: 'unauthorized' })
         if (req.method !== 'GET') return send(res, 405, { ok: false, reason: 'GET only' })
         try {
           const url = new URL(req.url ?? '/', 'http://127.0.0.1')

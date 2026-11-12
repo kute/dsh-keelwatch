@@ -10,6 +10,14 @@ export interface DriftFinding {
     readonly declared: string;
     readonly latest?: string;
     readonly message: string;
+    /**
+     * What to do about it, in one line.
+     *
+     * Text only, on purpose: writing a pin into a user's manifest is a change
+     * this plugin has no business making on its own. The suggestion names the
+     * exact version or the exact file so the fix is a copy-paste away.
+     */
+    readonly suggestion?: string;
 }
 export interface DriftReport {
     readonly scannedAt: number;
@@ -50,6 +58,14 @@ export declare function runningDshVersion(): string | null;
  * profile still predicts the next broken startup.
  */
 export declare function collectInstalledBundles(dshHome: string): Promise<BundleManifest[]>;
+/**
+ * One-line remedy for a finding.
+ *
+ * For a drifted dependency the safe target is the lowest version the bundle's own
+ * declaration admits — pinning there keeps the package on the combination it was
+ * tested with, without guessing at an upgrade.
+ */
+export declare function suggestionForFinding(finding: Pick<DriftFinding, 'kind' | 'declared' | 'latest' | 'packageName'>): string;
 export interface ScanOptions {
     readonly dshHome?: string;
     readonly dshVersion?: string | null;

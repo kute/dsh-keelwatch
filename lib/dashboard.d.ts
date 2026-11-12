@@ -2,7 +2,7 @@ import type { CostAttributionConfig, DriftRadarConfig, FailureBrakeConfig } from
 import type { CostLedger } from './cost-attribution.js';
 import type { FailureBrake } from './failure-brake.js';
 import type { HistoryEntry, HistoryLog } from './history.js';
-import type { KeelwatchHost } from './host.js';
+import { type KeelwatchHost } from './host.js';
 import type { TokenAttribution } from './token-attribution.js';
 export interface DashboardDeps {
     readonly host: KeelwatchHost;
@@ -36,6 +36,7 @@ export interface StatusPayload {
             kind: string;
             level: string;
             message: string;
+            suggestion?: string;
         }[];
         skipped: number;
     };
@@ -67,6 +68,14 @@ export interface StatusPayload {
         preview: string;
     }[];
     readonly history: readonly HistoryEntry[];
+    /** Entries per day for the last week, oldest first. */
+    readonly trend: readonly {
+        date: string;
+        ok: number;
+        info: number;
+        warn: number;
+        error: number;
+    }[];
     readonly refreshSeconds: number;
     readonly documentPath: string | null;
 }
@@ -77,6 +86,13 @@ export interface StatusPayload {
  * list that explains why a capability is missing.
  */
 export declare function collectStatus(deps: DashboardDeps): Promise<StatusPayload>;
+/**
+ * Count entries per calendar day for the last seven days.
+ *
+ * Days with no detection are kept as zeros: a gap in a health chart is
+ * information ("nothing ran") and dropping the row would hide it.
+ */
+export declare function buildTrend(entries: readonly HistoryEntry[], days?: number, now?: number): StatusPayload['trend'];
 /**
  * Register both routes.
  *

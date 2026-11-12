@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DEFAULTS } from '../lib/config.js'
-import { collectInstalledBundles, scanDrift, summarize } from '../lib/drift-radar.js'
+import { collectInstalledBundles, scanDrift, suggestionForFinding, summarize } from '../lib/drift-radar.js'
 import { matchesPattern } from '../lib/patterns.js'
 
 function makeDshHome(packages) {
@@ -150,5 +150,33 @@ test('one unreachable registry stops the rest of the scan instead of timing out 
   assert.equal(report.findings.length, 0)
   assert.equal(report.skipped.length, 3)
   assert.match(report.skipped[1].reason, /registry unreachable earlier in this scan/)
+  rmSync(home, { recursive: true, force: true })
+})
+
+test('an incompatible engine suggests disabling or upgrading, never editing silently', () => {
+  const text = suggestionForFinding({ kind: 'engine-incompatible', declared: '>=9.0.0', packageName: 'bad-bundle' })
+  assert.match(text, /upgrade bad-bundle/)
+  assert.match(text, /keelwatch_report action=disable bundle=bad-bundle/)
+})
+
+test('a drifted dependency suggests the lowest version its own range admits', () => {
+  const text = suggestionForFinding({
+    kind: 'dependency-drift',
+    declared: '~3.18.4',
+    latest: '3.19.0',
+    packageName: 'some-bundle',
+  })
+  assert.match(text, /"@deepseek-ai\/\*": "3\.18\.4"/)
+  assert.match(text, /upgrade some-bundle/)
+})
+
+test('findings carry their suggestion into the summary', async () => {
+  const home = makeDshHome({
+    demo: { name: 'drift-plugin', version: '1.0.0', engines: { dsh: '>=9.0.0' }, dependencies: {} },
+  })
+  const report = await scanDrift(driftConfig, { dshHome: home, dshVersion: '0.2.1-rc.5' })
+  assert.equal(report.findings.length, 1)
+  assert.ok(typeof report.findings[0].suggestion === 'string')
+  assert.match(summarize(report), /→ upgrade drift-plugin/)
   rmSync(home, { recursive: true, force: true })
 })

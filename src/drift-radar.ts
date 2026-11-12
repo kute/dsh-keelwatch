@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import type { DriftRadarConfig } from './config.js'
 import type { KeelwatchHost } from './host.js'
 import { matchesPattern } from './patterns.js'
+import { minimumVersion } from './semver.js'
 import { lookupPackage } from './registry.js'
 import { checkEngine, classifyDrift, type DriftLevel } from './semver.js'
 
@@ -25,6 +26,14 @@ export interface DriftFinding {
   readonly declared: string
   readonly latest?: string
   readonly message: string
+  /**
+   * What to do about it, in one line.
+   *
+   * Text only, on purpose: writing a pin into a user's manifest is a change
+   * this plugin has no business making on its own. The suggestion names the
+   * exact version or the exact file so the fix is a copy-paste away.
+   */
+  readonly suggestion?: string
 }
 
 export interface DriftReport {
@@ -167,6 +176,25 @@ export async function collectInstalledBundles(dshHome: string): Promise<BundleMa
   return [...byName.values()].sort((left, right) => left.name.localeCompare(right.name))
 }
 
+/**
+ * One-line remedy for a finding.
+ *
+ * For a drifted dependency the safe target is the lowest version the bundle's own
+ * declaration admits — pinning there keeps the package on the combination it was
+ * tested with, without guessing at an upgrade.
+ */
+export function suggestionForFinding(finding: Pick<DriftFinding, 'kind' | 'declared' | 'latest' | 'packageName'>): string {
+  if (finding.kind === 'engine-incompatible') {
+    return `upgrade ${finding.packageName} to a version whose engines.dsh admits this DSH, or disable it (keelwatch_report action=disable bundle=${finding.packageName})`
+  }
+  const pin = minimumVersion(finding.declared)
+  if (pin !== null) {
+    const pinned = `${pin.major}.${pin.minor}.${pin.patch}`
+    return `pin it back with a profile overrides entry: "@deepseek-ai/*": "${pinned}" (or upgrade ${finding.packageName} if it supports ${finding.latest ?? 'the newer release'})`
+  }
+  return `upgrade ${finding.packageName} so its declared range covers ${finding.latest ?? 'the current release'}`
+}
+
 function isWhitelisted(name: string, whitelist: readonly string[]): boolean {
   return whitelist.some((pattern) => matchesPattern(pattern, name))
 }
@@ -214,13 +242,14 @@ export async function scanDrift(config: DriftRadarConfig, options: ScanOptions =
     if (bundle.enginesDsh !== undefined && dshVersion !== null) {
       const engine = checkEngine(bundle.enginesDsh, dshVersion)
       if (engine.level === 'major') {
-        findings.push({
+        const engineFinding: DriftFinding = {
           packageName: bundle.name,
           kind: 'engine-incompatible',
           level: 'major',
           declared: bundle.enginesDsh,
           message: `${bundle.name}@${bundle.version} declares engines.dsh "${bundle.enginesDsh}" but DSH ${dshVersion} is running`,
-        })
+        }
+        findings.push({ ...engineFinding, suggestion: suggestionForFinding(engineFinding) })
       } else if (engine.level === 'skipped') {
         skipped.push({ packageName: bundle.name, reason: engine.reason })
       }
@@ -246,14 +275,15 @@ export async function scanDrift(config: DriftRadarConfig, options: ScanOptions =
         continue
       }
       if (!severityOf(drift.level, config.alertLevel)) continue
-      findings.push({
+      const driftFinding: DriftFinding = {
         packageName: bundle.name,
         kind: 'dependency-drift',
         level: drift.level,
         declared,
         latest: facts.latest,
         message: `${bundle.name} pins ${dependency} "${declared}" but upstream latest is ${facts.latest} (${drift.level})`,
-      })
+      }
+      findings.push({ ...driftFinding, suggestion: suggestionForFinding(driftFinding) })
     }
   }
 
@@ -264,7 +294,9 @@ export async function scanDrift(config: DriftRadarConfig, options: ScanOptions =
 export function summarize(report: DriftReport): string {
   const head = `keelwatch: drift scan over ${report.bundlesScanned} bundle(s)`
   if (report.findings.length === 0) return `${head}: no findings`
-  const lines = report.findings.map((finding) => `  - ${finding.message}`)
+  const lines = report.findings.map((finding) =>
+    finding.suggestion === undefined ? `  - ${finding.message}` : `  - ${finding.message}\n    → ${finding.suggestion}`,
+  )
   return [`${head}: ${report.findings.length} finding(s)`, ...lines].join('\n')
 }
 
