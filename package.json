@@ -1,5 +1,5 @@
 {
-  "name": "@kute/dsh-keelwatch",
+  "name": "@kutebai/dsh-keelwatch",
   "version": "0.1.0",
   "type": "module",
   "description": "DSH plugin ecosystem operations layer: dependency drift radar, failure brake, and token/latency attribution",

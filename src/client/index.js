@@ -13,7 +13,7 @@
  * row and the new values take effect.
  */
 window.__ModuleLoader__.load({
-  id: '@kute/dsh-keelwatch',
+  id: '@kutebai/dsh-keelwatch',
   factory: (require) => {
     var module = { exports: {} }
     var exports = module.exports
@@ -305,7 +305,7 @@ window.__ModuleLoader__.load({
         ctx.slots.register(
           {
             name: 'plugins.bundle.config',
-            key: '@kute/dsh-keelwatch',
+            key: '@kutebai/dsh-keelwatch',
             locale: NS,
           },
           ConfigForm,

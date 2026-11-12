@@ -380,7 +380,7 @@ export function registerReportTool(deps: ReportDeps): boolean {
 
       if (action === 'disable') {
         if (typeof input.bundle !== 'string' || input.bundle.trim() === '') {
-          return 'keelwatch: action "disable" needs a bundle name, for example { "action": "disable", "bundle": "@kute/dsh-keelwatch" }'
+          return 'keelwatch: action "disable" needs a bundle name, for example { "action": "disable", "bundle": "@kutebai/dsh-keelwatch" }'
         }
         const outcome = await disableBundle(deps.host, input.bundle.trim())
         return `keelwatch: ${outcome.message}`

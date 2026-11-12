@@ -76,7 +76,7 @@
 
 ### 配置页（Web GUI）
 
-侧栏 **插件** → `@kute/dsh-keelwatch` → 详情页里的**配置区**。改完点保存即可，会：
+侧栏 **插件** → `@kutebai/dsh-keelwatch` → 详情页里的**配置区**。改完点保存即可，会：
 
 1. 校验（非法值不会落盘）；
 2. 写入 `~/.dsh/profiles/<profile>/cordis.patch.yml` 里属于本插件的那一行（整行 `config` 替换）；

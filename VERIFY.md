@@ -42,7 +42,7 @@ pnpm test
 dsh plugin --profile keelwatch-verify add ~/dsh-keelwatch
 ```
 
-预期：`+ @kute/dsh-keelwatch link:/...`，且**不出现** `installation rejected`。
+预期：`+ @kutebai/dsh-keelwatch link:/...`，且**不出现** `installation rejected`。
 
 > 若出现 `incompatible with dsh 0.2.1-rc.5`，说明 `engines.dsh` 写错了。正确形式是
 > `>=0.2.1-0 <0.3.0-0`：宿主用 `semver.satisfies(v, range, { includePrerelease: true })`
@@ -52,13 +52,13 @@ dsh plugin --profile keelwatch-verify add ~/dsh-keelwatch
 
 ```sh
 # 3.1 插件行是否进了组合配置
-dsh --profile keelwatch-verify --dump-config | grep -A4 "== @kute/dsh-keelwatch"
+dsh --profile keelwatch-verify --dump-config | grep -A4 "== @kutebai/dsh-keelwatch"
 
 # 3.2 运行时是否真的 import 到了本包的 Config schema
 dsh --profile keelwatch-verify --dump-config-schema | grep -o "driftRadar\|failureBrake\|costAttribution" | sort -u
 ```
 
-预期：3.1 输出 `# == @kute/dsh-keelwatch` 及其 `config` 段；3.2 三行分别命中。
+预期：3.1 输出 `# == @kutebai/dsh-keelwatch` 及其 `config` 段；3.2 三行分别命中。
 
 ## 4. 运行时验证（真启动一次）
 

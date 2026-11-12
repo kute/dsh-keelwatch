@@ -73,7 +73,7 @@ if (injections[0] !== 'plugins.bundle.config') {
   throw new Error(`client registered into ${injections[0] ?? 'nothing'} instead of plugins.bundle.config`)
 }
 if (registrations.length !== 1) throw new Error('client registered an unexpected number of slots')
-if (registrations[0].meta.key !== '@kute/dsh-keelwatch') throw new Error('client slot key must be the package name')
+if (registrations[0].meta.key !== '@kutebai/dsh-keelwatch') throw new Error('client slot key must be the package name')
 
 await mkdir(dirname(target), { recursive: true })
 await writeFile(target, code, 'utf8')
