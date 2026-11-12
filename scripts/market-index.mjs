@@ -22,7 +22,7 @@ function argOf(name, fallback) {
   return index === -1 ? fallback : process.argv[index + 1]
 }
 
-const outputPath = join(root, argOf('--out', 'site/index.json'))
+const outputPath = join(root, argOf('--out', 'docs/index.json'))
 const checking = process.argv.includes('--check')
 
 function isoHomepage(manifest) {

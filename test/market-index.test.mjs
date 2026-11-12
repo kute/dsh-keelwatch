@@ -6,7 +6,7 @@ import { marketInstallTarget, parseMarketIndex } from '@deepseek-ai/dsh-plugin-m
 
 const root = new URL('..', import.meta.url).pathname
 const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-const raw = readFileSync(join(root, 'site/index.json'), 'utf8')
+const raw = readFileSync(join(root, "docs/index.json"), "utf8")
 
 test('the shipped market index passes the official format-1 validator', () => {
   const index = parseMarketIndex(JSON.parse(raw), 'https://kute.github.io/dsh-keelwatch/index.json')
