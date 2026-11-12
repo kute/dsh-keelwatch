@@ -4,7 +4,7 @@
 
 给 DeepSeek Harness（DSH）装了很多插件之后，你需要一个**看住这些插件的东西**。keelwatch 就是它。
 
-![dashboard](docs/images/dashboard.png)
+![dashboard](https://kute.github.io/dsh-keelwatch/images/dashboard.png)
 
 > 上图是`/keelwatch/dashboard` 的示例数据模式（`?demo=1`），用于展示布局；真实页面显示你自己的会话数据。
 
