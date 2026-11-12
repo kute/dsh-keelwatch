@@ -10,7 +10,6 @@
  * do the diagnosis. Every section therefore carries one English and one Chinese
  * sentence, and the whole report ends with a single conclusion.
  */
-import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { CostAttributionConfig, DriftRadarConfig } from './config.js'
 import type { CostLedger } from './cost-attribution.js'
 import { formatTimingReport } from './cost-attribution.js'
@@ -351,22 +350,25 @@ export function registerReportTool(deps: ReportDeps): boolean {
     return false
   }
 
-  const tool = defineTool({
+  // Built by hand instead of through `defineTool`: that helper lives in
+  // `@deepseek-ai/dsh-tools`, which is a host-internal package that pnpm cannot
+  // resolve at install time (it publishes only prereleases), so depending on it
+  // made `dsh plugin add <git url>` fail outright. The definition below is the
+  // same shape the host validates: JSON Schema parameters plus a canonical
+  // output declaration.
+  const tool = {
     name: 'keelwatch_report',
     description:
       'Report DSH plugin ecosystem health: bundles that failed to load, dependency drift, the failure brake state, ' +
       'per-tool latency, and token cost per source. Returns a bilingual (EN/ZH) reading for every section plus one ' +
       'conclusion. Use action "disable" with an exact bundle name only when the user asks to turn a broken bundle off.',
     parameters: {
-      // Omitted `required` means optional in the tool DSL.
-      action: {
-        type: 'string',
-        description: 'Either "status" (default) or "disable".',
+      type: 'object',
+      properties: {
+        action: { type: 'string', description: 'Either "status" (default) or "disable".' },
+        bundle: { type: 'string', description: 'Exact bundle name to disable; required when action is "disable".' },
       },
-      bundle: {
-        type: 'string',
-        description: 'Exact bundle name to disable; required when action is "disable".',
-      },
+      additionalProperties: false,
     },
     output: {
       schema: { type: 'string' },
@@ -389,7 +391,7 @@ export function registerReportTool(deps: ReportDeps): boolean {
       }
       return buildStatusReport(deps)
     },
-  })
+  }
 
   try {
     registry.register(tool)
