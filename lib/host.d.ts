@@ -82,6 +82,27 @@ export interface KeelwatchHost {
  */
 export declare function expectedGuiToken(host: KeelwatchHost): string | null;
 /**
+ * Whether a request may touch a plugin route.
+ *
+ * Two tiers, because the host exposes no reusable check:
+ *
+ * - When a token can be discovered (`webApp.getAdvertisedUrl()` carrying
+ *   `?token=`), it is required — query, `x-dsh-token`, or `dsh_token` cookie.
+ * - Otherwise the route falls back to a **same-origin check**: a request with an
+ *   `Origin` header whose host does not match the served host is refused. That
+ *   is the practical threat (a page in the browser reaching localhost); a local
+ *   process can read the token file anyway, so pretending otherwise would be
+ *   security theatre.
+ *
+ * Note: `getAdvertisedUrl()` in this host returns the origin *without* a token,
+ * so in practice the same-origin tier is what runs — this is stated plainly in
+ * the README rather than claiming a token check that never happens.
+ */
+export declare function isAllowedRequest(req: {
+    url?: string;
+    headers: Record<string, unknown>;
+}, expected: string | null): boolean;
+/**
  * Whether a request carries the GUI token.
  *
  * When the profile has no Web app (headless, SDK) there is nothing to compare

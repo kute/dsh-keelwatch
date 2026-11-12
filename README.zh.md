@@ -119,7 +119,9 @@ http://127.0.0.1:3080/keelwatch/dashboard?token=<你的 GUI token>
 
 **从哪里进**：仪表盘是独立页面，不在侧栏里。开关打开后，插件配置页的 Dashboard 卡片会多出一个 **「打开仪表盘 ↗」** 链接（自动带上当前 GUI token），点它即可。也可以手工打开 `/keelwatch/dashboard?token=<GUI token>`。
 
-**访问控制**：这两个路由用 GUI 的 token 校验（查询参数、`x-dsh-token` 头或 `dsh_token` cookie 之一），因为 DSH 的 `/api` 防护不覆盖自定义路径。没有 token 一律 401。
+**访问控制**：DSH 的 `/api` 防护不覆盖自定义路径，所以这几个路由自己守一道：**同源校验**——带 `Origin` 头且与当前 host 不一致的请求直接 401，挡住浏览器里的跨站页面（DNS rebinding 那一类）。本机命令行工具（无 `Origin`）放行，因为本机进程本来就能读你的文件，假装能拦住它没有意义。
+
+> 长度说明：宿主目前不对外暴露 GUI 的 token（`webApp.getAdvertisedUrl()` 返回的是不含 token 的 origin），所以没有做 token 比对；如果将来宿主提供了，这层会自动升级为 token 校验，代码里已留好分支。
 
 ## 三点六、它是怎么工作的（检测频率 / 通知 / 历史）
 

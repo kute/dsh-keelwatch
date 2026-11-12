@@ -197,3 +197,33 @@ test('with a Web app present, both routes require the GUI token', async () => {
   )
   assert.equal(code, 200)
 })
+
+test('without a discoverable token, cross-origin requests are refused', async () => {
+  const routes = []
+  const webServer = {
+    register(route) {
+      routes.push(route)
+      return () => {}
+    },
+  }
+  registerDashboard(baseDeps({ webServer }))
+  const page = routes.find((route) => route.path === '/keelwatch/dashboard')
+  const call = async (headers) => {
+    let code = null
+    await page.handler(
+      { method: 'GET', headers, url: '/keelwatch/dashboard' },
+      {
+        writeHead: (value) => {
+          code = value
+        },
+        end: () => {},
+      },
+    )
+    return code
+  }
+  // No Origin (curl, local tooling) and same-origin are both allowed.
+  assert.equal(await call({}), 200)
+  assert.equal(await call({ origin: 'http://127.0.0.1:3080', host: '127.0.0.1:3080' }), 200)
+  // A page from anywhere else is not.
+  assert.equal(await call({ origin: 'https://evil.example', host: '127.0.0.1:3080' }), 401)
+})

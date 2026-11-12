@@ -17,7 +17,7 @@
  */
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Config, DEFAULTS, normalizeConfig, type Config as ConfigShape } from './config.js'
-import { carriesGuiToken, expectedGuiToken, type KeelwatchHost } from './host.js'
+import { expectedGuiToken, isAllowedRequest, type KeelwatchHost } from './host.js'
 import type { HistoryLog } from './history.js'
 import { ROW_ID, readRowConfig, writeRowConfig } from './patch-writer.js'
 
@@ -156,10 +156,11 @@ export function registerConfigApi(deps: ConfigApiDeps): boolean {
   // fence, and GET here exposes the plugin configuration while POST rewrites it.
   const expected = expectedGuiToken(host)
   if (expected === null) {
-    host.logger?.warn('keelwatch: config endpoint served without a token check (no webApp service in this profile)')
+    // Same-origin only: the host exposes no token to compare against.
+    host.logger?.info?.('keelwatch: config endpoint guarded by same-origin check')
   }
   const authorized = (req: IncomingMessage): boolean =>
-    expected === null || carriesGuiToken(req.url, req.headers as Record<string, unknown>, expected)
+    isAllowedRequest({ url: req.url, headers: req.headers as Record<string, unknown> }, expected)
 
   const dispose = webServer.register({
     kind: 'exact',

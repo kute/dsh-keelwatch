@@ -93,7 +93,9 @@ Turn it on and a **"open dashboard ↗"** link appears in the plugin's Dashboard
 
 The page shows bundle health, dependency drift with fix suggestions, brake state, per-tool latency (calls/errors/total/p95), token cost by source with the most expensive messages, a **7-day detection trend**, and recent history.
 
-Both routes verify the GUI token (query parameter, `x-dsh-token` header, or `dsh_token` cookie) because the host's `/api` fence does not cover custom paths; anything else gets 401. It is plain HTML — no client build, no dependency on the client plugin loading — and turning the switch off unregisters both routes.
+Both routes guard themselves with a **same-origin check** (the host's `/api` fence does not cover custom paths): a request carrying an `Origin` header that does not match the served host gets 401, which blocks a page in the browser from reaching localhost. Local CLI tools (no `Origin`) pass, since a local process can read your files anyway.
+
+The host does not expose the GUI token to plugins (`getAdvertisedUrl()` returns the origin without it), so no token comparison happens today; the code keeps that branch ready should the host start providing one. It is plain HTML — no client build, no dependency on the client plugin loading — and turning the switch off unregisters both routes.
 
 ## How detection runs
 

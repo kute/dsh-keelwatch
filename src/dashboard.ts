@@ -15,7 +15,7 @@ import type { CostAttributionConfig, DriftRadarConfig, FailureBrakeConfig } from
 import type { CostLedger } from './cost-attribution.js'
 import type { FailureBrake } from './failure-brake.js'
 import type { HistoryEntry, HistoryLog } from './history.js'
-import { carriesGuiToken, expectedGuiToken, type KeelwatchHost } from './host.js'
+import { expectedGuiToken, isAllowedRequest, type KeelwatchHost } from './host.js'
 import { readHealth, type HealthSnapshot } from './plugin-health.js'
 import { scanDrift } from './drift-radar.js'
 import type { TokenAttribution } from './token-attribution.js'
@@ -501,10 +501,10 @@ export function registerDashboard(deps: DashboardDeps): boolean {
   // local process could read session token costs and message previews.
   const expected = expectedGuiToken(deps.host)
   if (expected === null) {
-    deps.host.logger?.warn('keelwatch: dashboard served without a token check (no webApp service in this profile)')
+    deps.host.logger?.info?.('keelwatch: dashboard guarded by same-origin check')
   }
   const authorized = (req: IncomingMessage): boolean =>
-    expected === null || carriesGuiToken(req.url, req.headers as Record<string, unknown>, expected)
+    isAllowedRequest({ url: req.url, headers: req.headers as Record<string, unknown> }, expected)
 
   const disposers: (() => void)[] = []
 
