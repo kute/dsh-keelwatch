@@ -81,6 +81,14 @@ say "更新 GitHub Release 附件"
 # pnpm names a scoped tarball by flattening the scope: @kutebai/x -> kutebai-x
 TARBALL="$(printf '%s-%s.tgz' "${PKG_NAME#@}" "$PKG_VERSION" | tr '/' '-')"
 if [ -f "$TARBALL" ]; then
+  # A version bump has no release yet; the upload alone would fail with
+  # "release not found", which is what happened first time round.
+  if ! gh release view "v$PKG_VERSION" --repo kute/dsh-keelwatch >/dev/null 2>&1; then
+    say "创建 Release v$PKG_VERSION"
+    gh release create "v$PKG_VERSION" --repo kute/dsh-keelwatch \
+      --title "dsh-keelwatch v$PKG_VERSION" \
+      --notes "See https://github.com/kute/dsh-keelwatch/blob/main/README.zh.md for details. / 详见 README。"
+  fi
   gh release upload "v$PKG_VERSION" "$TARBALL" --repo kute/dsh-keelwatch --clobber
 else
   say "未找到 $TARBALL，跳过附件更新（先执行 pnpm pack）"
