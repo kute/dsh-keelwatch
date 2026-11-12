@@ -221,13 +221,24 @@ keelwatch status report · keelwatch 状态报告
 ## 六、安装
 
 ```sh
-# 发布后
-dsh plugin --profile <profile> add @kute/dsh-keelwatch
+# 1) 从 GitHub Release 的 tarball（离线可用）
+dsh plugin --profile <profile> add ./kute-dsh-keelwatch-0.1.0.tgz
 
-# 本地开发（目录直链，改代码后 pnpm build + 重启即可）
+# 2) 从仓库直装（产物已入库，安装时不跑构建脚本、无需授权）
+dsh plugin --profile <profile> add github:kute/dsh-keelwatch
+
+# 3) 本地开发（目录直链，改代码后 pnpm build + 重启即可）
 pnpm build
 dsh plugin --profile <profile> add /path/to/dsh-keelwatch
 ```
+
+**在 DSH 插件市场里发现它**：DSH 没有中心市场，索引是托管在静态站的 JSON。打开 **插件 → 发现 → 添加索引源**，填入：
+
+```
+https://kute.github.io/dsh-keelwatch/index.json
+```
+
+之后就能在「发现」里看到 Keelwatch，并从索引指向的 commit 安装。
 
 要求 `engines.dsh: >=0.2.1-0 <0.3.0-0`（覆盖 DSH 0.2.1.x / 0.2.2.x），Node `>=22.19`，全平台。
 

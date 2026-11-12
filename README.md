@@ -18,12 +18,21 @@ A DSH **profile** (`~/.dsh/profiles/<name>/`) is a composition of plugins. The u
 ## Install
 
 ```sh
-# from npm (after publishing)
-dsh plugin --profile <profile> add @kute/dsh-keelwatch
+# 1) tarball from the GitHub release
+dsh plugin --profile <profile> add ./kute-dsh-keelwatch-0.1.0.tgz
 
-# local development (directory link; rebuild + restart after code changes)
+# 2) straight from the repository (build output is committed, no build授权 needed)
+dsh plugin --profile <profile> add github:kute/dsh-keelwatch
+
+# 3) local development (directory link; rebuild + restart after changes)
 pnpm build
 dsh plugin --profile <profile> add /path/to/dsh-keelwatch
+```
+
+**In the DSH plugin market**: there is no central index — add this URL under Plugins → Discover → Add index source:
+
+```
+https://kute.github.io/dsh-keelwatch/index.json
 ```
 
 Requires `engines.dsh: >=0.2.1-0 <0.3.0-0` (covers DSH 0.2.1.x / 0.2.2.x), Node `>=22.19`, all platforms.
