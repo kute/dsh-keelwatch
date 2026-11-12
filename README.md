@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-![dashboard](docs/images/dashboard.png)
+![dashboard](https://kute.github.io/dsh-keelwatch/images/dashboard.png)
 
 > The image above uses the dashboard's sample-data mode (`?demo=1`) to show the layout; a live page shows your own sessions.
 
