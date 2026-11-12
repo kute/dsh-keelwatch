@@ -172,7 +172,7 @@ export function formatTokenUsage(usages: readonly TokenUsage[], limit: number): 
       .sort((left, right) => right[1] - left[1])
       .slice(0, limit)
       .map(([kind, tokens]) => `${kind} ${tokens}`)
-    if (usage.unknownTokens > 0) entries.push(`unattributed ${usage.unknownTokens}`)
+    if (usage.unknownTokens > 0) entries.push(`unattributed ${usage.unknownTokens} (events keelwatch did not observe)`)
     lines.push(
       `  ${usage.session}: ${usage.surfaceTokens} surface / ${usage.totalTokens} total over ${usage.nodes} node(s) — ` +
         (entries.length === 0 ? 'no breakdown' : entries.join(', ')),

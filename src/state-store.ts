@@ -41,16 +41,16 @@ async function renameInto(placeholder: string, target: string): Promise<void> {
 }
 
 /**
- * Write JSON atomically.
+ * Write text atomically through a same-directory placeholder.
  *
  * Returns `false` instead of throwing: persistence is an enhancement here, and
  * a read-only or full disk must not turn into a plugin failure.
  */
-export async function writeJsonAtomic(path: string, value: unknown): Promise<boolean> {
+export async function writeTextAtomic(path: string, text: string): Promise<boolean> {
   const placeholder = `${path}.${process.pid}.${Date.now()}.tmp`
   try {
     await mkdir(dirname(path), { recursive: true })
-    await writeFile(placeholder, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
+    await writeFile(placeholder, text, 'utf8')
     await renameInto(placeholder, path)
     return true
   } catch {
@@ -58,4 +58,9 @@ export async function writeJsonAtomic(path: string, value: unknown): Promise<boo
     await rm(placeholder, { force: true }).catch(() => undefined)
     return false
   }
+}
+
+/** Write JSON atomically. */
+export async function writeJsonAtomic(path: string, value: unknown): Promise<boolean> {
+  return writeTextAtomic(path, `${JSON.stringify(value, null, 2)}\n`)
 }

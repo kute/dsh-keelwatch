@@ -99,7 +99,15 @@ export async function buildStatusReport(deps: ReportDeps): Promise<string> {
  * a service without the injection requirement, which is why it is tried too.
  */
 function resolveRegistry(deps: ReportDeps): { register(tool: unknown): unknown } | null {
-  const candidates: unknown[] = [deps.registry, deps.host.tools]
+  const candidates: unknown[] = [deps.registry]
+  // A plain `ctx.tools` read throws on a context whose fiber did not inject the
+  // service ("cannot get property \"tools\" without inject"), so both property
+  // reads are guarded: probing a service must never be able to fail the report.
+  try {
+    candidates.push(deps.host.tools)
+  } catch {
+    // Not injectable from this context; `reflect.get` below is the sanctioned read.
+  }
   try {
     candidates.push(deps.host.reflect?.get('tools'))
   } catch {

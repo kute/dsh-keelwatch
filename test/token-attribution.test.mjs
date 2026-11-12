@@ -95,7 +95,7 @@ test('formatTokenUsage orders kinds by tokens and marks unattributed', () => {
     5,
   )
   assert.match(text, /session-1: 1800 surface \/ 2000 total over 4 node\(s\)/)
-  assert.match(text, /system-prompt 1200, user 300, unattributed 300/)
+  assert.match(text, /system-prompt 1200, user 300, unattributed 300 \(events keelwatch did not observe\)/)
 })
 
 test('no observations reports that instead of an empty table', () => {

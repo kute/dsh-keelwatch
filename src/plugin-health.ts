@@ -81,7 +81,14 @@ export function resolvePluginManager(host: ManagerHost): PluginManagerLike | nul
   } catch {
     // A throwing reflect means the service is unavailable, not a hard failure.
   }
-  candidates.push(host.pluginManager)
+  try {
+    // The plain property read throws on a context whose fiber did not inject the
+    // service ("cannot get property \"pluginManager\" without inject"); probing a
+    // service may degrade to "unavailable", never fail the inventory.
+    candidates.push(host.pluginManager)
+  } catch {
+    // `reflect.get` above is the sanctioned read; keep whatever it returned.
+  }
 
   for (const candidate of candidates) {
     if (typeof candidate !== 'object' || candidate === null) continue

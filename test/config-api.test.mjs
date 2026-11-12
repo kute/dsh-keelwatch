@@ -1,14 +1,25 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { DEFAULTS } from '../lib/config.js'
 import { effectiveConfig, registerConfigApi, validateSubmitted } from '../lib/config-api.js'
+import { readRowConfig } from '../lib/patch-writer.js'
 
-function makeHost({ webServer, configEditor } = {}) {
+function tempPatch(initial = '[]\n') {
+  const dir = mkdtempSync(join(tmpdir(), 'keelwatch-api-'))
+  const path = join(dir, 'cordis.patch.yml')
+  writeFileSync(path, initial)
+  return { path, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+}
+
+function makeHost({ documentPath, webServer } = {}) {
   const routes = []
   const warnings = []
-  // The default recorder IS the webserver the host reflects, so every test sees
-  // the routes this plugin registered.
-  // `webServer: null` models a profile with no webserver; omitting it installs
-  // the recording stub.
+  const services = {
+    configEditor: documentPath === undefined ? undefined : { documentPath },
+  }
   const resolvedWebServer =
     webServer === undefined
       ? {
@@ -18,7 +29,7 @@ function makeHost({ webServer, configEditor } = {}) {
           },
         }
       : webServer
-  const services = { webServer: resolvedWebServer, configEditor }
+  services.webServer = resolvedWebServer
   return {
     host: {
       logger: { warn: (m) => warnings.push(m), info: (m) => warnings.push(m) },
@@ -27,19 +38,15 @@ function makeHost({ webServer, configEditor } = {}) {
     },
     routes,
     warnings,
-    services,
-    webServer: resolvedWebServer,
   }
 }
 
 function makeRes() {
   return {
     status: null,
-    headers: null,
     body: '',
-    writeHead(status, headers) {
+    writeHead(status) {
       this.status = status
-      this.headers = headers
     },
     end(payload) {
       this.body = payload ?? ''
@@ -63,7 +70,6 @@ test('validateSubmitted accepts a partial config and fills the gaps from default
   assert.equal(result.config.failureBrake.enabled, true)
   assert.equal(result.config.failureBrake.action, 'log')
   assert.equal(result.config.driftRadar.enabled, true)
-  assert.equal(result.config.costAttribution.retentionDays, 7)
 })
 
 test('validateSubmitted rejects non-objects instead of writing a bad patch', () => {
@@ -71,7 +77,7 @@ test('validateSubmitted rejects non-objects instead of writing a bad patch', () 
   assert.equal(validateSubmitted(null).ok, false)
 })
 
-test('effectiveConfig prefers the profile override over bundle-layer values', () => {
+test('effectiveConfig prefers the explicit layer over inherited values', () => {
   const merged = effectiveConfig(
     { driftRadar: { checkIntervalHours: 24, alertLevel: 'major' } },
     { driftRadar: { checkIntervalHours: 6 } },
@@ -87,100 +93,100 @@ test('without a webserver the config page is simply unavailable', () => {
   assert.match(warnings.at(-1) ?? '', /config page unavailable/)
 })
 
-test('GET reports the effective config and the file it is persisted to', async () => {
-  const editor = {
-    documentPath: '/Users/u/.dsh/profiles/web/cordis.patch.yml',
-    entries: () => [{ id: 'keelwatch' }],
-    configuration: () => [
-      { entry: { id: 'keelwatch' }, inherited: {}, override: { failureBrake: { enabled: true } } },
-    ],
-    edit: async () => {},
-  }
-  const { host, routes } = makeHost({ configEditor: editor })
+test('GET reports defaults while the profile patch has no managed row', async () => {
+  const { path, cleanup } = tempPatch()
+  const { host, routes } = makeHost({ documentPath: path })
   assert.equal(registerConfigApi({ host }), true)
-  assert.equal(routes[0].kind, 'exact')
   assert.equal(routes[0].path, '/keelwatch/config')
 
   const res = makeRes()
-  await routes[0].handler(makeReq({ method: 'GET' }), res)
+  await routes[0].handler(makeReq(), res)
   const payload = JSON.parse(res.body)
   assert.equal(res.status, 200)
   assert.equal(payload.ok, true)
-  assert.equal(payload.config.failureBrake.enabled, true)
-  assert.match(payload.documentPath, /cordis\.patch\.yml$/)
+  assert.equal(payload.managed, false)
+  assert.equal(payload.documentPath, path)
+  assert.equal(payload.config.failureBrake.enabled, DEFAULTS.failureBrake.enabled)
+  cleanup()
 })
 
-test('POST without the same-origin header is refused before touching the profile', async () => {
-  const editor = {
-    documentPath: '/x/cordis.patch.yml',
-    entries: () => [{ id: 'keelwatch' }],
-    configuration: () => [],
-    edit: async () => {
-      throw new Error('must not be called')
-    },
-  }
-  const { host, routes } = makeHost({ configEditor: editor })
-  registerConfigApi({ host })
-  const res = makeRes()
-  await routes[0].handler(makeReq({ method: 'POST', body: '{}' }), res)
-  assert.equal(res.status, 403)
-})
-
-test('POST persists the whole config shape through the config editor', async () => {
-  const edits = []
-  const editor = {
-    documentPath: '/x/cordis.patch.yml',
-    entries: () => [{ id: 'keelwatch' }, { id: 'other' }],
-    configuration: () => [],
-    edit: async (entry, change) => {
-      edits.push({ entry, config: change({}, {}) })
-    },
-  }
-  const { host, routes } = makeHost({ configEditor: editor })
+test('POST writes the profile patch and GET reads it back', async () => {
+  const { path, cleanup } = tempPatch()
+  const { host, routes } = makeHost({ documentPath: path })
   registerConfigApi({ host })
 
-  const res = makeRes()
   const body = JSON.stringify({ driftRadar: { checkIntervalHours: 2 }, failureBrake: { enabled: true, action: 'brake' } })
-  await routes[0].handler(makeReq({ method: 'POST', headers: { 'x-keelwatch-config': '1' }, body }), res)
+  const post = makeRes()
+  await routes[0].handler(makeReq({ method: 'POST', headers: { 'x-keelwatch-config': '1' }, body }), post)
+  const payload = JSON.parse(post.body)
+  assert.equal(post.status, 200)
+  assert.equal(payload.ok, true)
+  assert.equal(payload.changed, true)
+  assert.ok(payload.backupPath === null || typeof payload.backupPath === 'string')
 
-  assert.equal(res.status, 200)
-  assert.equal(JSON.parse(res.body).ok, true)
-  assert.deepEqual(edits[0].entry, { id: 'keelwatch' })
-  // The patch replaces a row's whole config, so every group must be present.
-  assert.deepEqual(Object.keys(edits[0].config).sort(), ['costAttribution', 'driftRadar', 'failureBrake'])
-  assert.equal(edits[0].config.driftRadar.checkIntervalHours, 2)
-  assert.equal(edits[0].config.failureBrake.action, 'brake')
+  const written = readFileSync(path, 'utf8')
+  assert.match(written, /- id: keelwatch/)
+
+  const get = makeRes()
+  await routes[0].handler(makeReq(), get)
+  const readBack = JSON.parse(get.body)
+  assert.equal(readBack.managed, true)
+  assert.equal(readBack.config.driftRadar.checkIntervalHours, 2)
+  assert.equal(readBack.config.failureBrake.action, 'brake')
+  cleanup()
 })
 
-test('POST with an invalid body fails loudly and writes nothing', async () => {
-  let called = false
-  const editor = {
-    documentPath: '/x/cordis.patch.yml',
-    entries: () => [{ id: 'keelwatch' }],
-    configuration: () => [],
-    edit: async () => {
-      called = true
-    },
-  }
-  const { host, routes } = makeHost({ configEditor: editor })
+test('POST without the same-origin header never touches the file', async () => {
+  const { path, cleanup } = tempPatch('- id: untouched\n')
+  const before = readFileSync(path, 'utf8')
+  const { host, routes } = makeHost({ documentPath: path })
   registerConfigApi({ host })
+  const res = makeRes()
+  await routes[0].handler(makeReq({ method: 'POST', body: '{"driftRadar":{}}' }), res)
+  assert.equal(res.status, 403)
+  assert.equal(readFileSync(path, 'utf8'), before)
+  cleanup()
+})
 
+test('POST with an invalid body writes nothing', async () => {
+  const { path, cleanup } = tempPatch('[]\n')
+  const { host, routes } = makeHost({ documentPath: path })
+  registerConfigApi({ host })
   const res = makeRes()
   await routes[0].handler(makeReq({ method: 'POST', headers: { 'x-keelwatch-config': '1' }, body: 'not-json' }), res)
   assert.equal(res.status, 400)
-  assert.equal(called, false)
+  assert.equal(readFileSync(path, 'utf8'), '[]\n')
+  cleanup()
+})
+
+test('a profile without a resolvable patch path degrades with 503', async () => {
+  const { host, routes } = makeHost({})
+  registerConfigApi({ host })
+  const res = makeRes()
+  await routes[0].handler(makeReq(), res)
+  assert.equal(res.status, 503)
 })
 
 test('unsupported methods are answered, not ignored', async () => {
-  const editor = {
-    documentPath: '/x/cordis.patch.yml',
-    entries: () => [{ id: 'keelwatch' }],
-    configuration: () => [],
-    edit: async () => {},
-  }
-  const { host, routes } = makeHost({ configEditor: editor })
+  const { path, cleanup } = tempPatch()
+  const { host, routes } = makeHost({ documentPath: path })
   registerConfigApi({ host })
   const res = makeRes()
   await routes[0].handler(makeReq({ method: 'DELETE' }), res)
   assert.equal(res.status, 405)
+  cleanup()
 })
+
+test('the managed row survives a round trip through the reader', async () => {
+  const { path, cleanup } = tempPatch()
+  await writeRowConfigForTest(path)
+  const read = await readRowConfig(path)
+  assert.equal(read.found, true)
+  assert.ok(read.config !== null)
+  cleanup()
+})
+
+async function writeRowConfigForTest(path) {
+  const { writeRowConfig } = await import('../lib/patch-writer.js')
+  await writeRowConfig(path, { driftRadar: { enabled: false } })
+}

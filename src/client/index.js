@@ -33,10 +33,11 @@ window.__ModuleLoader__.load({
       documentPath: '写入位置',
       save: '保存',
       saving: '保存中…',
-      reloading: '已保存，Loader 正在重新加载该行',
+      reloading: '已写入 profile patch；HMR 会重组该行，若未生效请重启一次 dsh web',
       failed: '保存失败',
       loadFailed: '读取配置失败',
-      overridden: '当前值来自 profile patch；其余字段使用插件默认值。',
+      overridden: '保存会写入 profile 的 cordis.patch.yml（整行 config 替换），并先备份原文件。',
+      unmanaged: '该 profile 尚未有针对本插件的 patch 行；保存后会创建一行并接管配置。',
       drift: '漂移雷达（Drift Radar）',
       brake: '失败刹车（Failure Brake）',
       cost: '成本归因（Cost Attribution）',
@@ -121,6 +122,8 @@ window.__ModuleLoader__.load({
       const [status, setStatus] = React.useState(null)
       const [busy, setBusy] = React.useState(false)
       const [documentPath, setDocumentPath] = React.useState(null)
+      const [managed, setManaged] = React.useState(true)
+      const [backupPath, setBackupPath] = React.useState(null)
 
       React.useEffect(() => {
         let alive = true
@@ -131,6 +134,7 @@ window.__ModuleLoader__.load({
             if (payload.ok) {
               setConfig(payload.config)
               setDocumentPath(payload.documentPath || null)
+              setManaged(payload.managed !== false)
             } else {
               setError(`${text.loadFailed}: ${payload.reason}`)
             }
@@ -157,8 +161,11 @@ window.__ModuleLoader__.load({
         })
           .then(readJson)
           .then((payload) => {
-            if (payload.ok) setStatus(text.reloading)
-            else setError(`${text.failed}: ${payload.reason}`)
+            if (payload.ok) {
+              setManaged(true)
+              setBackupPath(payload.backupPath || null)
+              setStatus(text.reloading)
+            } else setError(`${text.failed}: ${payload.reason}`)
           })
           .catch((failure) => setError(`${text.failed}: ${failure.message}`))
           .finally(() => setBusy(false))
@@ -173,6 +180,8 @@ window.__ModuleLoader__.load({
         { style: styles.wrapper },
         h('div', { style: styles.header }, h('div', { style: styles.title }, text.title), h('div', { style: styles.hint }, text.intro)),
         documentPath === null ? null : h('div', { style: styles.hint }, `${text.documentPath}: ${documentPath}`),
+        managed ? null : h('div', { style: styles.hint }, text.unmanaged),
+        backupPath === null ? null : h('div', { style: styles.hint }, `backup: ${backupPath}`),
         h(
           'div',
           { style: styles.card },

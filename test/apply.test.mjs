@@ -128,12 +128,14 @@ test('the report tool is registered through ctx.inject, not by assuming ctx.tool
     timer: { interval: () => {}, timeout: () => () => {} },
     inject: (deps, callback) => {
       injected.push(deps)
-      callback({ tools: { register: (tool) => registered.push(tool.name) } })
+      if (deps.includes('tools')) callback({ tools: { register: (tool) => registered.push(tool.name) } })
+      else callback({ webServer: { register: () => () => {} } })
       return {}
     },
   }
   apply(host, baseConfig({}))
-  assert.deepEqual(injected, [['tools']])
+  // Both optional services are consumed through injection, never by probing.
+  assert.deepEqual(injected.map((deps) => deps[0]).sort(), ['tools', 'webServer'])
   assert.deepEqual(registered, ['keelwatch_report'])
 })
 

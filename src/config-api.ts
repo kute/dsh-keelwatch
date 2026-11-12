@@ -18,9 +18,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Config, DEFAULTS, normalizeConfig, type Config as ConfigShape } from './config.js'
 import type { KeelwatchHost } from './host.js'
+import { ROW_ID, readRowConfig, writeRowConfig } from './patch-writer.js'
 
 const ROUTE_PATH = '/keelwatch/config'
-const ENTRY_ID = 'keelwatch'
 const MAX_BODY_BYTES = 64 * 1024
 /** Cross-site requests cannot set a custom header without a preflight we refuse. */
 const REQUIRED_HEADER = 'x-keelwatch-config'
@@ -33,18 +33,26 @@ interface WebServerLike {
   }): () => void
 }
 
+/**
+ * Only `documentPath` is used: it names the profile patch this profile edits,
+ * which is exactly the file the page must write. Row listing is not used because
+ * that service addresses profile-declared rows only, and a bundle's row is not
+ * one of them.
+ */
 interface ConfigEditorLike {
   readonly documentPath?: string
-  entries(): Array<{ id?: unknown; name?: unknown }>
-  configuration(): Array<{ entry: { id?: unknown }; inherited: Record<string, unknown>; override: Record<string, unknown> }>
-  edit(
-    entry: unknown,
-    change: (current: Record<string, unknown>, inherited: Record<string, unknown>) => Record<string, unknown>,
-  ): Promise<void>
 }
 
 export interface ConfigApiDeps {
   readonly host: KeelwatchHost
+  /**
+   * Webserver handed over by `ctx.inject(['webServer'])`.
+   *
+   * `reflect.get` only returns an *active* provider, and this plugin's fiber can
+   * load before the webserver finishes activating — which is exactly how the
+   * route silently went missing the first time. Injection waits instead.
+   */
+  readonly webServer?: unknown
 }
 
 function resolve<T>(host: KeelwatchHost, service: string): T | null {
@@ -113,6 +121,19 @@ export function validateSubmitted(input: unknown): { ok: true; config: ConfigSha
 }
 
 /**
+ * Resolve the profile patch file to write.
+ *
+ * `configEditor.documentPath` is the authoritative answer (it is the file the
+ * profile launcher composes last); `$DSH_HOME/profiles/<profile>/cordis.patch.yml`
+ * is not derivable from inside a plugin without that pointer.
+ */
+function patchPathOf(host: KeelwatchHost): string | null {
+  const editor = resolve<ConfigEditorLike>(host, 'configEditor')
+  const path = editor?.documentPath
+  return typeof path === 'string' && path !== '' ? path : null
+}
+
+/**
  * Register the route.
  *
  * Returns false (with one log line) when the profile has no webserver or no
@@ -120,9 +141,11 @@ export function validateSubmitted(input: unknown): { ok: true; config: ConfigSha
  */
 export function registerConfigApi(deps: ConfigApiDeps): boolean {
   const { host } = deps
-  const webServer = resolve<WebServerLike>(host, 'webServer')
+  const injected = deps.webServer
+  const webServer =
+    typeof injected === 'object' && injected !== null ? (injected as WebServerLike) : resolve<WebServerLike>(host, 'webServer')
   if (webServer === null || typeof webServer.register !== 'function') {
-    host.logger?.info?.('keelwatch: config page unavailable (no webserver in this profile)')
+    host.logger?.warn('keelwatch: config page unavailable (no webserver in this profile)')
     return false
   }
 
@@ -132,16 +155,21 @@ export function registerConfigApi(deps: ConfigApiDeps): boolean {
     async handler(req, res) {
       try {
         if (req.method === 'GET') {
-          const editor = resolve<ConfigEditorLike>(host, 'configEditor')
-          if (editor === null) return send(res, 503, { ok: false, reason: 'config editor unavailable' })
-          const rows = editor.configuration()
-          const row = rows.find((candidate) => candidate.entry?.id === ENTRY_ID)
-          if (row === undefined) return send(res, 404, { ok: false, reason: `row ${ENTRY_ID} not found` })
+          const documentPath = patchPathOf(host)
+          if (documentPath === null) return send(res, 503, { ok: false, reason: 'profile patch not resolvable' })
+          const row = await readRowConfig(documentPath, ROW_ID)
+          // A managed row already carries the full shape; a missing or
+          // hand-written row falls back to the documented defaults.
+          const config =
+            row.config === null
+              ? DEFAULTS
+              : normalizeConfig({ ...(DEFAULTS as unknown as Record<string, unknown>), ...row.config } as unknown as ConfigShape)
           return send(res, 200, {
             ok: true,
-            entryId: ENTRY_ID,
-            documentPath: editor.documentPath ?? null,
-            config: effectiveConfig(row.inherited, row.override),
+            entryId: ROW_ID,
+            documentPath,
+            managed: row.config !== null,
+            config,
           })
         }
 
@@ -159,18 +187,16 @@ export function registerConfigApi(deps: ConfigApiDeps): boolean {
           const validated = validateSubmitted(parsed)
           if (!validated.ok) return send(res, 400, { ok: false, reason: validated.reason })
 
-          const editor = resolve<ConfigEditorLike>(host, 'configEditor')
-          if (editor === null) return send(res, 503, { ok: false, reason: 'config editor unavailable' })
-          const entry = editor.entries().find((candidate) => candidate.id === ENTRY_ID)
-          if (entry === undefined) return send(res, 404, { ok: false, reason: `row ${ENTRY_ID} not found` })
+          const documentPath = patchPathOf(host)
+          if (documentPath === null) return send(res, 503, { ok: false, reason: 'profile patch not resolvable' })
 
-          // A patch replaces the whole `config` value, so the full shape is
-          // written rather than a delta that would silently drop siblings.
-          await editor.edit(entry, () => ({ ...validated.config }))
+          const written = await writeRowConfig(documentPath, { ...validated.config }, ROW_ID)
           return send(res, 200, {
             ok: true,
-            applied: 'reload',
-            documentPath: editor.documentPath ?? null,
+            changed: written.changed,
+            createdRow: written.createdRow,
+            documentPath,
+            backupPath: written.backupPath,
             config: validated.config,
           })
         }
@@ -190,5 +216,6 @@ export function registerConfigApi(deps: ConfigApiDeps): boolean {
       // The server may already be torn down during profile shutdown.
     }
   })
+  host.logger?.info?.(`keelwatch: config page served at ${ROUTE_PATH}`)
   return true
 }

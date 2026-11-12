@@ -86,6 +86,7 @@ export function apply(ctx: Context, config: ConfigShape): void {
   const host = ctx as unknown as KeelwatchHost
   const normalized = normalizeConfig(config)
   const dshHome = resolveDshHome()
+  const inject = (ctx as unknown as { inject?: (deps: string[], callback: (inner: unknown) => void) => unknown }).inject
 
   let brake: FailureBrake | undefined
   let ledger: CostLedger | undefined
@@ -134,10 +135,25 @@ export function apply(ctx: Context, config: ConfigShape): void {
     }
   }
 
-  try {
-    registerConfigApi({ host })
-  } catch (error) {
-    host.logger?.warn(`keelwatch: config page disabled after load error: ${describe(error)}`)
+  // Same pattern as the tool registry: wait for the service instead of probing
+  // for it, because a missing provider at this instant is a load-order artefact,
+  // not a profile without a webserver.
+  const mountConfigPage = (webServer?: unknown): void => {
+    try {
+      registerConfigApi({ host, ...(webServer === undefined ? {} : { webServer }) })
+    } catch (error) {
+      host.logger?.warn(`keelwatch: config page disabled after load error: ${describe(error)}`)
+    }
+  }
+
+  if (typeof inject === 'function') {
+    try {
+      inject.call(ctx, ['webServer'], (inner: unknown) => mountConfigPage((inner as { webServer?: unknown }).webServer))
+    } catch (error) {
+      host.logger?.warn(`keelwatch: config page injection failed: ${describe(error)}`)
+    }
+  } else {
+    mountConfigPage()
   }
 
   // Report one broken bundle early instead of waiting for the user to notice a
@@ -166,14 +182,21 @@ export function apply(ctx: Context, config: ConfigShape): void {
     ...(tokens === undefined ? {} : { tokens }),
   }
 
-  // `ctx.inject` starts a nested plugin once `tools` is active, which is the
-  // supported way to consume a service this plugin does not make mandatory.
-  const inject = (ctx as unknown as { inject?: (deps: string[], callback: (inner: unknown) => void) => unknown }).inject
+  // Both optional services below are consumed through `ctx.inject`, which starts
+  // the registration only once the provider is active.
   if (typeof inject === 'function') {
     try {
       inject.call(ctx, ['tools'], (inner: unknown) => {
+        let innerRegistry: unknown
         try {
-          registerReportTool({ ...reportDeps, registry: (inner as { tools?: unknown }).tools })
+          innerRegistry = (inner as { tools?: unknown }).tools
+        } catch (error) {
+          // A forked context may still refuse the property read; fall through to
+          // `reflect.get` inside the registrar instead of giving up here.
+          host.logger?.warn(`keelwatch: injected tools service unreadable: ${describe(error)}`)
+        }
+        try {
+          registerReportTool(innerRegistry === undefined ? reportDeps : { ...reportDeps, registry: innerRegistry })
         } catch (error) {
           host.logger?.warn(`keelwatch: report tool disabled after load error: ${describe(error)}`)
         }
