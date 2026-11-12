@@ -25,7 +25,8 @@ test('the index agrees with package.json on the engine range the host re-checks'
   // the exact commit.
   const target = marketInstallTarget(index.plugins[0].name, version)
   if (version.source.type === 'git') {
-    assert.match(target.spec, /^git\+https:\/\/github\.com\/kute\/dsh-keelwatch#[0-9a-f]{40}$/)
+    // `marketInstallTarget` appends `.git` itself, so both forms are valid.
+    assert.match(target.spec, /^git\+https:\/\/github\.com\/kute\/dsh-keelwatch(\.git)?#[0-9a-f]{40}$/)
   } else {
     assert.equal(target.spec, `${manifest.name}@${manifest.version}`)
   }
