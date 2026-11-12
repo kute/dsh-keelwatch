@@ -123,3 +123,32 @@ test('matchesPattern supports the documented wildcard form only', () => {
   assert.equal(matchesPattern('web_search', 'web_search'), true)
   assert.equal(matchesPattern('a.c', 'abc'), false)
 })
+
+test('one unreachable registry stops the rest of the scan instead of timing out per package', async () => {
+  const home = makeDshHome({
+    demo: {
+      name: 'bundle-c',
+      version: '1.0.0',
+      dependencies: {
+        '@deepseek-ai/cordis': '^4.0.0',
+        '@deepseek-ai/schemastery': '^3.18.0',
+        '@deepseek-ai/dsh-llm': '^0.2.1',
+      },
+    },
+  })
+  let calls = 0
+  const report = await scanDrift(driftConfig, {
+    dshHome: home,
+    dshVersion: '0.2.1',
+    lookup: async (name) => {
+      calls += 1
+      return { name, status: 'unreachable', detail: 'ENOTFOUND registry.npmjs.org', fetchedAt: Date.now() }
+    },
+  })
+  // Only the first dependency pays the failure; the rest are skipped with a reason.
+  assert.equal(calls, 1)
+  assert.equal(report.findings.length, 0)
+  assert.equal(report.skipped.length, 3)
+  assert.match(report.skipped[1].reason, /registry unreachable earlier in this scan/)
+  rmSync(home, { recursive: true, force: true })
+})

@@ -199,6 +199,10 @@ export async function scanDrift(config: DriftRadarConfig, options: ScanOptions =
   const findings: DriftFinding[] = []
   const skipped: { packageName: string; reason: string }[] = []
   let scanned = 0
+  // One unreachable registry stops the rest of this scan: offline and
+  // intranet-only machines would otherwise pay one timeout per dependency and
+  // then report every package as "skipped", which reads as 19 problems.
+  let registryDown: string | null = null
 
   for (const bundle of bundles) {
     if (isWhitelisted(bundle.name, config.whitelist)) {
@@ -226,8 +230,13 @@ export async function scanDrift(config: DriftRadarConfig, options: ScanOptions =
     // in lockstep with DSH, which is the failure mode this radar exists for.
     for (const [dependency, declared] of Object.entries(bundle.dependencies)) {
       if (!dependency.startsWith('@deepseek-ai/')) continue
+      if (registryDown !== null) {
+        skipped.push({ packageName: `${bundle.name} -> ${dependency}`, reason: `registry unreachable earlier in this scan (${registryDown})` })
+        continue
+      }
       const facts = await lookup(dependency, { registryUrl: config.registryUrl, timeoutMs: config.requestTimeoutMs })
       if (facts.status !== 'ok' || facts.latest === undefined) {
+        if (facts.status === 'unreachable') registryDown = facts.detail ?? 'unreachable'
         skipped.push({ packageName: `${bundle.name} -> ${dependency}`, reason: facts.detail ?? facts.status })
         continue
       }

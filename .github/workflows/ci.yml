@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: build + test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The host requires ^22.19 || >=24; both lines are checked so a
+        # language-feature regression cannot slip through on one of them.
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (tsc + browser half)
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Typecheck without emit
+        run: pnpm typecheck
+
+  package:
+    name: packaged artifact is installable
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Pack and inspect
+        run: |
+          pnpm pack
+          TARBALL="$(ls ./*.tgz | head -1)"
+          echo "tarball: $TARBALL"
+          # A bundle without its patch installs as a plain dependency and
+          # activates nothing, so both files are checked explicitly.
+          tar tzf "$TARBALL" | grep -qx 'package/cordis.patch.yml'
+          tar tzf "$TARBALL" | grep -qx 'package/lib/index.js'
+          tar tzf "$TARBALL" | grep -qx 'package/lib/client.js'
+          tar tzf "$TARBALL" | grep -qx 'package/LICENSE'
+          test "$(tar tzf "$TARBALL" | grep -c '^package/lib/.*\.js$')" -ge 15
+
+      - name: Install the tarball into a scratch project
+        run: |
+          mkdir -p /tmp/install-check && cd /tmp/install-check
+          printf 'packages: []\n' > pnpm-workspace.yaml
+          printf '{"name":"check","private":true}\n' > package.json
+          pnpm add "$GITHUB_WORKSPACE"/*.tgz
+          test -f node_modules/@kutebai/dsh-keelwatch/cordis.patch.yml
+          test -f node_modules/@kutebai/dsh-keelwatch/lib/index.js
+
+  market:
+    name: market index matches package.json
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # Fails when docs/index.json drifts from package.json (version, engines).
+      - run: pnpm market:check

@@ -25,6 +25,32 @@ export interface BrakeState {
 export type BrakeVerdict = { deny: false; reason?: never } | { deny: true; reason: string }
 
 /**
+ * Error codes that must not count as failures.
+ *
+ * Two families:
+ * - cancellation the *user* caused (`ABORTED*`): stopping a turn is not a tool
+ *   defect, and counting it would brake a perfectly healthy tool;
+ * - this plugin's own denial (`TOOL_COOLED_DOWN`): a denied call is materialized
+ *   as an error result, and if that were counted the brake would re-arm itself
+ *   forever on the strength of its own refusals.
+ */
+const NON_COUNTABLE_CODES = new Set(['ABORTED', 'ABORTED_BEFORE_DISPATCH', 'TOOL_COOLED_DOWN'])
+
+/**
+ * Whether one settled call is a real failure worth counting.
+ *
+ * Reads the structured error identity rather than the message text: the host
+ * exposes `error.info.code` for exactly this distinction.
+ */
+export function isCountableFailure(result: PostToolResultLike): boolean {
+  if (result?.isError !== true) return false
+  const info = (result as { error?: { info?: { code?: unknown } } }).error?.info
+  const code = info?.code
+  if (typeof code === 'string' && NON_COUNTABLE_CODES.has(code)) return false
+  return true
+}
+
+/**
  * The Closed → Open → Half-open machine, pure and clock-injected.
  *
  * Kept free of host types so it can be unit-tested without a Cordis context and
@@ -154,7 +180,7 @@ export function installFailureBrake(host: KeelwatchHost, config: FailureBrakeCon
   host.on('tools/post-execute', async (exec: ToolExecutionLike, result: PostToolResultLike, next: () => Promise<unknown>) => {
     const decision = await next()
     try {
-      brake.observe(exec.name, result?.isError === true)
+      brake.observe(exec.name, isCountableFailure(result))
     } catch (error) {
       host.logger?.warn(`keelwatch: post-execute accounting failed: ${error instanceof Error ? error.message : String(error)}`)
     }

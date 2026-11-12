@@ -10,7 +10,7 @@
  * rewrites arguments, and never touches the tool registry.
  */
 import type { FailureBrakeConfig } from './config.js';
-import type { KeelwatchHost } from './host.js';
+import type { KeelwatchHost, PostToolResultLike } from './host.js';
 export interface BrakeState {
     /** Consecutive failures since the last success. */
     failures: number;
@@ -26,6 +26,13 @@ export type BrakeVerdict = {
     deny: true;
     reason: string;
 };
+/**
+ * Whether one settled call is a real failure worth counting.
+ *
+ * Reads the structured error identity rather than the message text: the host
+ * exposes `error.info.code` for exactly this distinction.
+ */
+export declare function isCountableFailure(result: PostToolResultLike): boolean;
 /**
  * The Closed → Open → Half-open machine, pure and clock-injected.
  *

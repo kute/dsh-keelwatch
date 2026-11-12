@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { FailureBrake } from '../lib/failure-brake.js'
+import { FailureBrake, isCountableFailure } from '../lib/failure-brake.js'
 
 const config = {
   enabled: true,
@@ -92,4 +92,27 @@ test('snapshot/restore round-trips the state machine', () => {
   restored.restore(saved)
   assert.equal(restored.check('bash', T0).deny, true)
   assert.deepEqual(restored.openTools(T0), ['bash'])
+})
+
+test('cancellation and the brake\'s own denial are not counted as failures', () => {
+  // A user stopping a turn is not a tool defect.
+  assert.equal(isCountableFailure({ isError: true, error: { info: { code: 'ABORTED' } } }), false)
+  assert.equal(isCountableFailure({ isError: true, error: { info: { code: 'ABORTED_BEFORE_DISPATCH' } } }), false)
+  // A denied call materializes as an error result; counting it would let the
+  // brake re-arm itself on its own refusals.
+  assert.equal(isCountableFailure({ isError: true, error: { info: { code: 'TOOL_COOLED_DOWN' } } }), false)
+  // Real failures and unknown codes still count.
+  assert.equal(isCountableFailure({ isError: true, error: { info: { code: 'ENOENT' } } }), true)
+  assert.equal(isCountableFailure({ isError: true, error: { message: 'boom' } }), true)
+  assert.equal(isCountableFailure({ isError: true }), true)
+  assert.equal(isCountableFailure({ isError: false }), false)
+})
+
+test('a tool never trips on a run of cancellations', () => {
+  const brake = new FailureBrake(config)
+  for (let index = 0; index < 10; index += 1) {
+    brake.observe('bash', isCountableFailure({ isError: true, error: { info: { code: 'ABORTED' } } }))
+  }
+  assert.equal(brake.check('bash').deny, false)
+  assert.equal(brake.snapshot()['bash'].failures, 0)
 })
