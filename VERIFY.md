@@ -28,7 +28,7 @@
 ## 1. 构建 + 单元测试
 
 ```sh
-cd /Users/kute/work/gitwork/dsh-keelwatch
+cd ~/dsh-keelwatch
 pnpm install
 pnpm build
 pnpm test
@@ -39,7 +39,7 @@ pnpm test
 ## 2. 装进隔离 profile
 
 ```sh
-dsh plugin --profile keelwatch-verify add /Users/kute/work/gitwork/dsh-keelwatch
+dsh plugin --profile keelwatch-verify add ~/dsh-keelwatch
 ```
 
 预期：`+ @kute/dsh-keelwatch link:/...`，且**不出现** `installation rejected`。

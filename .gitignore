@@ -19,3 +19,9 @@ node_modules/
 # local artifacts
 *.log
 coverage/
+
+# development notes and local artifacts stay local
+开发设计文档.md
+backups/
+*.tgz
+*.bak-*
