@@ -81,9 +81,7 @@
 
 ### 配置页（Web GUI）
 
-![配置页：三组配置](https://kute.github.io/dsh-keelwatch/images/config-form.png)
 
-![配置页：仪表盘开关与入口](https://kute.github.io/dsh-keelwatch/images/config-dashboard.png)
 
 侧栏 **插件** → `@kutebai/dsh-keelwatch` → 详情页里的**配置区**。改完点保存即可，会：
 
