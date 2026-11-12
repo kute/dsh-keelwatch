@@ -45,8 +45,7 @@
     "test": "node --test test/*.test.mjs",
     "prepublishOnly": "npm run build && npm test",
     "market": "node scripts/market-index.mjs",
-    "market:check": "node scripts/market-index.mjs --check",
-    "prepare": "pnpm build"
+    "market:check": "node scripts/market-index.mjs --check"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.0",
