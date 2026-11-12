@@ -11,6 +11,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: ~4.0.5
         version: 4.0.5
+      '@deepseek-ai/dsh-plugin-market-index':
+        specifier: 0.2.1-alpha.4
+        version: 0.2.1-alpha.4(@deepseek-ai/cordis@4.0.5)
       '@deepseek-ai/dsh-tools':
         specifier: 0.2.1-rc.5
         version: 0.2.1-rc.5(838c99649576d6611fa9994cb21a266c)
@@ -77,6 +80,16 @@ packages:
     resolution: {integrity: sha1-7MGDKE1ajQhGb2kRWorkd3yTUn4=}
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.5
+
+  '@deepseek-ai/dsh-package-manifest@0.2.1-alpha.4':
+    resolution: {integrity: sha1-x25OkrFOv8t45TXf/y3tH4PQbAI=}
+    peerDependencies:
+      '@deepseek-ai/cordis': ~4.0.5-alpha.2
+
+  '@deepseek-ai/dsh-plugin-market-index@0.2.1-alpha.4':
+    resolution: {integrity: sha1-RbGmC8mx+kiobLCfj+qTyKZo6q8=}
+    peerDependencies:
+      '@deepseek-ai/cordis': ~4.0.5-alpha.2
 
   '@deepseek-ai/dsh-ptc-runtime@0.2.1-rc.5':
     resolution: {integrity: sha1-GVOVMZlR2faTu8K3Cuz5C9vsgS8=}
@@ -194,6 +207,11 @@ packages:
   '@types/node@22.20.5':
     resolution: {integrity: sha1-r6e95tqBuLg+pOLwIEh+mxSMEf0=}
 
+  semver@7.8.6:
+    resolution: {integrity: sha1-Z8DNoTOjzrb3C4A+Z2Jb+WkABCQ=}
+    engines: {node: '>=10'}
+    hasBin: true
+
   typescript@5.9.3:
     resolution: {integrity: sha1-W09Z4VMQqxeiFvXWz1PuR27eZw8=}
     engines: {node: '>=14.17'}
@@ -251,6 +269,16 @@ snapshots:
       '@deepseek-ai/dsh-util-values': 0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)
       '@deepseek-ai/schemastery': 3.18.5
       zod: 4.4.3
+
+  '@deepseek-ai/dsh-package-manifest@0.2.1-alpha.4(@deepseek-ai/cordis@4.0.5)':
+    dependencies:
+      '@deepseek-ai/cordis': 4.0.5
+
+  '@deepseek-ai/dsh-plugin-market-index@0.2.1-alpha.4(@deepseek-ai/cordis@4.0.5)':
+    dependencies:
+      '@deepseek-ai/cordis': 4.0.5
+      '@deepseek-ai/dsh-package-manifest': 0.2.1-alpha.4(@deepseek-ai/cordis@4.0.5)
+      semver: 7.8.6
 
   '@deepseek-ai/dsh-ptc-runtime@0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)(@deepseek-ai/dsh-sandbox@0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)(@deepseek-ai/dsh-llm@0.2.1-rc.5(@deepseek-ai/cordis@4.0.5))(@deepseek-ai/dsh-session@0.2.1-rc.5(@deepseek-ai/cordis@4.0.5)(@deepseek-ai/dsh-scope@0.2.1-rc.5(@deepseek-ai/cordis@4.0.5))))':
     dependencies:
@@ -373,6 +401,8 @@ snapshots:
   '@types/node@22.20.5':
     dependencies:
       undici-types: 6.21.0
+
+  semver@7.8.6: {}
 
   typescript@5.9.3: {}
 

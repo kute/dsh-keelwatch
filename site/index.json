@@ -1,0 +1,51 @@
+{
+  "format": 1,
+  "title": {
+    "en": "keelwatch",
+    "zh": "keelwatch"
+  },
+  "description": {
+    "en": "Operations layer for a DSH plugin ecosystem: drift radar, failure brake, token attribution.",
+    "zh": "DSH 插件生态运维层：依赖漂移雷达、失败刹车、Token 归因。"
+  },
+  "plugins": [
+    {
+      "name": "@kute/dsh-keelwatch",
+      "title": {
+        "en": "Keelwatch",
+        "zh": "Keelwatch"
+      },
+      "description": {
+        "en": "Watches dependency drift, brakes repeatedly failing tools, and attributes tokens and latency per source.",
+        "zh": "看住依赖漂移、给反复失败的工具踩刹车、按来源归因 Token 与耗时。"
+      },
+      "author": "kute",
+      "homepage": "https://github.com/kute/dsh-keelwatch#readme",
+      "repository": {
+        "url": "https://github.com/kute/dsh-keelwatch"
+      },
+      "metadata": {
+        "keywords": [
+          "dsh",
+          "dsh-plugin",
+          "observability",
+          "plugin-health"
+        ],
+        "labels": [],
+        "sortKeys": {}
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1794448083,
+          "source": {
+            "type": "npm"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-0 <0.3.0-0"
+          }
+        }
+      ]
+    }
+  ]
+}

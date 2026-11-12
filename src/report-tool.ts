@@ -13,6 +13,7 @@ import type { FailureBrake } from './failure-brake.js'
 import type { KeelwatchHost } from './host.js'
 import { disableBundle, readHealth } from './plugin-health.js'
 import { scanDrift, summarize } from './drift-radar.js'
+import { formatTokenUsage, type TokenAttribution, type TokenMeterLike } from './token-attribution.js'
 
 export interface ReportDeps {
   readonly host: KeelwatchHost
@@ -20,6 +21,7 @@ export interface ReportDeps {
   readonly costConfig: CostAttributionConfig
   readonly brake?: FailureBrake
   readonly ledger?: CostLedger
+  readonly tokens?: TokenAttribution
 }
 
 function scheduleSection(deps: ReportDeps): string {
@@ -63,6 +65,25 @@ export async function buildStatusReport(deps: ReportDeps): Promise<string> {
     sections.push(formatTimingReport(deps.ledger, deps.costConfig.topN))
   } else {
     sections.push('tool time: not recorded (cost attribution disabled)')
+  }
+
+  if (deps.tokens !== undefined) {
+    let meter: TokenMeterLike | null = null
+    try {
+      const candidate = deps.host.reflect?.get('tokenMeter')
+      if (typeof candidate === 'object' && candidate !== null && typeof (candidate as TokenMeterLike).measure === 'function') {
+        meter = candidate as TokenMeterLike
+      }
+    } catch {
+      meter = null
+    }
+    sections.push(
+      meter === null
+        ? 'tokens: host exposes no token meter'
+        : formatTokenUsage(deps.tokens.measure(meter, deps.costConfig.topN), deps.costConfig.topN),
+    )
+  } else {
+    sections.push('tokens: not recorded (cost attribution disabled)')
   }
 
   return sections.join('\n\n')

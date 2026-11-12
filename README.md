@@ -17,11 +17,28 @@ DeepSeek Harness 插件生态的**运维层**。它不新增任何 agent 能力�
 
 ## 安装
 
+发布后从 npm 安装：
+
 ```sh
 dsh plugin --profile <your-profile> add @kute/dsh-keelwatch
 ```
 
-依赖宿主提供 `@deepseek-ai/cordis` 与 `@deepseek-ai/schemastery`（声明为 peer），并要求 `engines.dsh` 兼容。
+**本地开发时**（还没发布），从目录或 tarball 安装：
+
+```sh
+# 方式一：目录直链（link），改代码后 `pnpm build` 再重启 dsh 即生效
+pnpm build
+dsh plugin --profile <your-profile> add /Users/kute/work/gitwork/dsh-keelwatch
+
+# 方式二：tarball，最接近真实发布形态
+pnpm pack
+dsh plugin --profile <your-profile> add ./kute-dsh-keelwatch-0.1.0.tgz
+```
+
+两个要点：① 入口是 `lib/index.js`，所以目录安装前必须 `pnpm build`（仓库里 `lib/` 不入版本库）；
+② **不要装进正在用的 `web` profile**，用独立 profile 验证，详见 [VERIFY.md](VERIFY.md)。
+
+依赖宿主提供 `@deepseek-ai/cordis`、`@deepseek-ai/schemastery`、`@deepseek-ai/dsh-tools`（声明为 peer），并要求 `engines.dsh` 兼容。
 
 ## 配置
 
@@ -62,7 +79,9 @@ dsh plugin --profile <your-profile> add @kute/dsh-keelwatch
 | 会话总量、上下文压力 | 精确（来自官方 `ctx.tokenMeter`） |
 | 按消息来源 kind 的 Token | 精确（surface 节点价格 + `MessageSource.kind`） |
 | 按工具的耗时与失败率 | 精确（`tools/execute` 计时） |
-| 按 npm 包（「哪个插件花最多 Token」） | **推断**：插件注入的消息若声明了自己的 source kind 才精确，否则按工具名映射，可在 `toolToBundle` 里补 |
+| 按来源 kind（`system-prompt` / `tool` / 各插件自定义 kind） | 精确：`session/event` 记录 `seq → MessageSource.kind`，与 `tokenMeter` 的 surface 节点按 `seq` 对齐 |
+| 按 npm 包（「哪个插件花最多 Token」） | **推断**：插件注入的消息若声明了自己的 source kind 才精确；没声明 kind 的节点记为 `unattributed`，不猜 |
+| 索引文件 | `pnpm market` 由 `package.json` 生成，`pnpm market:check` 校验是否过期 |
 
 不承诺与计费账单一致。
 

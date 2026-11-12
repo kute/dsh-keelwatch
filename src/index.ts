@@ -18,6 +18,7 @@ import { installFailureBrake, type BrakeState, type FailureBrake } from './failu
 import type { KeelwatchHost } from './host.js'
 import { readHealth } from './plugin-health.js'
 import { registerReportTool } from './report-tool.js'
+import { TokenAttribution } from './token-attribution.js'
 import { readJsonFile, stateFilePath, writeJsonAtomic } from './state-store.js'
 
 /** Cordis row name; short because it prefixes every log line. */
@@ -87,6 +88,7 @@ export function apply(ctx: Context, config: ConfigShape): void {
 
   let brake: FailureBrake | undefined
   let ledger: CostLedger | undefined
+  let tokens: TokenAttribution | undefined
 
   if (normalized.driftRadar.enabled) {
     try {
@@ -110,6 +112,24 @@ export function apply(ctx: Context, config: ConfigShape): void {
       ledger = installCostAttribution(host, normalized.costAttribution)
     } catch (error) {
       host.logger?.warn(`keelwatch: cost attribution disabled after load error: ${describe(error)}`)
+    }
+  }
+
+  if (normalized.costAttribution.enabled) {
+    try {
+      const attribution = new TokenAttribution(host.logger)
+      // The append feed is fire-and-forget and observer failures are contained
+      // by the host; the extra guard keeps a bug here from ever touching a turn.
+      host.on('session/event', (session: unknown, event: unknown) => {
+        try {
+          attribution.observe(session, event as never)
+        } catch (error) {
+          host.logger?.warn(`keelwatch: token observation failed: ${describe(error)}`)
+        }
+      })
+      tokens = attribution
+    } catch (error) {
+      host.logger?.warn(`keelwatch: token attribution disabled after load error: ${describe(error)}`)
     }
   }
 
@@ -137,6 +157,7 @@ export function apply(ctx: Context, config: ConfigShape): void {
       costConfig: normalized.costAttribution,
       ...(brake === undefined ? {} : { brake }),
       ...(ledger === undefined ? {} : { ledger }),
+      ...(tokens === undefined ? {} : { tokens }),
     })
   } catch (error) {
     host.logger?.warn(`keelwatch: report tool disabled after load error: ${describe(error)}`)
