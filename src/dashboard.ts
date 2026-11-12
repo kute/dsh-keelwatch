@@ -416,18 +416,51 @@ function render(data) {
   if (trend.length === 0) {
     rBody.replaceChildren(empty('还没有足够的历史'));
   } else {
+    // Stacked columns: one bar per day, height by total, segments by level.
     const peak = Math.max(1, ...trend.map((d) => d.ok + d.info + d.warn + d.error));
-    rBody.replaceChildren(table(['日期', '正常·提示·注意·故障', ''], trend.map((d) => {
-      const total = d.ok + d.info + d.warn + d.error;
-      const bar = el('div', undefined, 'bar');
-      const fill = el('i');
-      fill.style.width = Math.round((total / peak) * 100) + '%';
-      bar.appendChild(fill);
-      const cell = el('td');
-      cell.appendChild(el('div', d.ok + ' · ' + d.info + ' · ' + d.warn + ' · ' + d.error));
-      cell.appendChild(bar);
-      return [d.date.slice(5), cell, num(total)];
-    })));
+    const chart = el('div');
+    chart.style.cssText = 'display:flex;align-items:flex-end;gap:10px;height:120px;padding:4px 0 0;';
+    const legend = el('div', undefined, 'empty');
+    legend.style.cssText = 'display:flex;gap:12px;margin-top:8px;font-size:11px;';
+    const colorOf = { ok: '#2f7d4f', info: '#7a8798', warn: '#b07a12', error: '#c0483a' };
+    const labelOf = { ok: '正常', info: '提示', warn: '注意', error: '故障' };
+
+    for (const day of trend) {
+      const total = day.ok + day.info + day.warn + day.error;
+      const column = el('div');
+      column.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;';
+      column.title = day.date + ' · ' + total + ' 条（正常 ' + day.ok + '，提示 ' + day.info + '，注意 ' + day.warn + '，故障 ' + day.error + '）';
+
+      const stack = el('div');
+      stack.style.cssText = 'width:100%;max-width:34px;display:flex;flex-direction:column-reverse;height:' +
+        Math.max(2, Math.round((total / peak) * 96)) + 'px;border-radius:3px;overflow:hidden;background:transparent;';
+      for (const level of ['ok', 'info', 'warn', 'error']) {
+        if (day[level] === 0) continue;
+        const segment = el('div');
+        segment.style.cssText = 'flex:' + day[level] + ';background:' + colorOf[level] + ';opacity:.8;';
+        stack.appendChild(segment);
+      }
+      if (total === 0) {
+        const flat = el('div');
+        flat.style.cssText = 'height:2px;width:100%;background:var(--line);';
+        stack.appendChild(flat);
+      }
+      column.appendChild(stack);
+      column.appendChild(el('div', day.date.slice(5), 'empty'));
+      column.appendChild(el('div', String(total), 'empty'));
+      chart.appendChild(column);
+    }
+
+    for (const level of ['ok', 'info', 'warn', 'error']) {
+      const item = el('span');
+      const dot = el('span');
+      dot.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;background:' + colorOf[level];
+      item.appendChild(dot);
+      item.appendChild(el('span', labelOf[level]));
+      legend.appendChild(item);
+    }
+
+    rBody.replaceChildren(chart, legend);
   }
 
   const h = data.history;

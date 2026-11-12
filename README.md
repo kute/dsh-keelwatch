@@ -91,7 +91,7 @@ dashboard:
 
 Turn it on and a **"open dashboard ↗"** link appears in the plugin's Dashboard card (it carries the GUI token). Or open `/keelwatch/dashboard?token=<GUI token>` directly — the page is standalone, not a section in the sidebar.
 
-The page shows bundle health, dependency drift with fix suggestions, brake state, per-tool latency (calls/errors/total/p95), token cost by source with the most expensive messages, a **7-day detection trend**, and recent history.
+The page shows bundle health, dependency drift with fix suggestions, brake state, per-tool latency (calls/errors/total/p95), token cost by source with the most expensive messages, a **7-day stacked trend chart** (coloured by ok/info/warn/error; silent days keep an empty column), and recent history.
 
 Both routes guard themselves with a **same-origin check** (the host's `/api` fence does not cover custom paths): a request carrying an `Origin` header that does not match the served host gets 401, which blocks a page in the browser from reaching localhost. Local CLI tools (no `Origin`) pass, since a local process can read your files anyway.
 
@@ -168,9 +168,13 @@ No timeouts (the host's `dsh-tool-call-timeout-policy` owns them), no repeat-cal
 ```sh
 pnpm install
 pnpm build      # tsc -> lib/ ; browser half src/client/index.js -> lib/client.js
-pnpm test       # node --test test/*.test.mjs
-pnpm market     # regenerate site/index.json (plugin market index)
+pnpm test       # node --test test/*.test.mjs (110 checks)
+pnpm market     # regenerate docs/index.json (plugin market index)
 ```
+
+Three test layers, one of which runs the real framework: `test/e2e-cordis.test.mjs` mounts the plugin in a real Cordis context so `inject = ['timer','tools']` is resolved by the framework itself, then dispatches the `tools/*` waterfalls — the only layer that catches a wrong inject name or a throwing registration.
+
+`timer` is a static inject; `dsh-base` ships `@deepseek-ai/cordis-plugin-timer` (row id `timer`), so web / headless / sdk profiles all provide it. A profile that removed it simply does not load this plugin, which is what a declared dependency should do.
 
 Verification and rollback: [VERIFY.md](VERIFY.md), [scripts/rollback.sh](scripts/rollback.sh).
 

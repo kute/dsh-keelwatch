@@ -115,7 +115,7 @@ dashboard:
 http://127.0.0.1:3080/keelwatch/dashboard?token=<你的 GUI token>
 ```
 
-一页看完七块：插件包健康、依赖漂移（含修复建议）、刹车状态、工具耗时（次数/错误/累计/p95）、Token 来源（含**最贵的单条消息**）、**近 7 天检测趋势**、最近检测记录。页面是纯 HTML，不依赖前端构建，也不会因为客户端插件加载失败而白屏；关掉开关后两个路由都不再注册。
+一页看完七块：插件包健康、依赖漂移（含修复建议）、刹车状态、工具耗时（次数/错误/累计/p95）、Token 来源（含**最贵的单条消息**）、**近 7 天堆叠柱状趋势**（按正常/提示/注意/故障分色，空白天保留为空柱）、最近检测记录。页面是纯 HTML，不依赖前端构建，也不会因为客户端插件加载失败而白屏；关掉开关后两个路由都不再注册。
 
 **从哪里进**：仪表盘是独立页面，不在侧栏里。开关打开后，插件配置页的 Dashboard 卡片会多出一个 **「打开仪表盘 ↗」** 链接（自动带上当前 GUI token），点它即可。也可以手工打开 `/keelwatch/dashboard?token=<GUI token>`。
 
@@ -304,9 +304,19 @@ https://kute.github.io/dsh-keelwatch/index.json
 ```sh
 pnpm install
 pnpm build      # tsc -> lib/ + 浏览器半侧 src/client/index.js -> lib/client.js
-pnpm test       # node --test test/*.test.mjs
-pnpm market     # 生成 site/index.json（插件市场索引）
+pnpm test       # node --test test/*.test.mjs（110 项）
+pnpm market     # 生成 docs/index.json（插件市场索引）
 ```
+
+测试分三层，其中一层是真实框架：
+
+| 层 | 内容 |
+|:---|:---|
+| 纯函数 | semver 判定、刹车状态机、历史分桶、配置钳制 |
+| 集成（mock host） | 路由鉴权、配置写入、报告渲染、工具注册 |
+| **e2e（真实 Cordis）** | `test/e2e-cordis.test.mjs`：让框架自己解析 `inject = ['timer','tools']`、挂载插件、派发 `tools/*` waterfall，验证多次失败后真的 `deny`、取消不计入、卸载无残留。这层能发现 mock 永远发现不了的问题——注入名写错、注册时抛错 |
+
+依赖说明：`timer` 是**静态注入**，`dsh-base` 组合包自带 `@deepseek-ai/cordis-plugin-timer`（行 id `timer`），所以 web / headless / sdk 都有；把 timer 从 profile 里移除的部署不会加载本插件，这是声明式依赖的应有结果，而不是静默降级。
 
 验证与回滚手册见 [VERIFY.md](VERIFY.md)，回滚脚本见 [scripts/rollback.sh](scripts/rollback.sh)。
 
