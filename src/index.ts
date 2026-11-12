@@ -12,6 +12,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { normalizeConfig, type Config as ConfigShape } from './config.js'
+import { registerConfigApi } from './config-api.js'
 import { installCostAttribution, type CostLedger } from './cost-attribution.js'
 import { resolveDshHome, startDriftRadar } from './drift-radar.js'
 import { installFailureBrake, type BrakeState, type FailureBrake } from './failure-brake.js'
@@ -133,6 +134,12 @@ export function apply(ctx: Context, config: ConfigShape): void {
     }
   }
 
+  try {
+    registerConfigApi({ host })
+  } catch (error) {
+    host.logger?.warn(`keelwatch: config page disabled after load error: ${describe(error)}`)
+  }
+
   // Report one broken bundle early instead of waiting for the user to notice a
   // missing capability. Deferred: the manager lists bundles only after the
   // loader has settled.
@@ -150,17 +157,40 @@ export function apply(ctx: Context, config: ConfigShape): void {
   if (typeof host.timer?.timeout === 'function') host.timer.timeout(announceBrokenBundles, 5_000)
   else announceBrokenBundles()
 
-  try {
-    registerReportTool({
-      host,
-      driftConfig: normalized.driftRadar,
-      costConfig: normalized.costAttribution,
-      ...(brake === undefined ? {} : { brake }),
-      ...(ledger === undefined ? {} : { ledger }),
-      ...(tokens === undefined ? {} : { tokens }),
-    })
-  } catch (error) {
-    host.logger?.warn(`keelwatch: report tool disabled after load error: ${describe(error)}`)
+  const reportDeps = {
+    host,
+    driftConfig: normalized.driftRadar,
+    costConfig: normalized.costAttribution,
+    ...(brake === undefined ? {} : { brake }),
+    ...(ledger === undefined ? {} : { ledger }),
+    ...(tokens === undefined ? {} : { tokens }),
+  }
+
+  // `ctx.inject` starts a nested plugin once `tools` is active, which is the
+  // supported way to consume a service this plugin does not make mandatory.
+  const inject = (ctx as unknown as { inject?: (deps: string[], callback: (inner: unknown) => void) => unknown }).inject
+  if (typeof inject === 'function') {
+    try {
+      inject.call(ctx, ['tools'], (inner: unknown) => {
+        try {
+          registerReportTool({ ...reportDeps, registry: (inner as { tools?: unknown }).tools })
+        } catch (error) {
+          host.logger?.warn(`keelwatch: report tool disabled after load error: ${describe(error)}`)
+        }
+      })
+    } catch (error) {
+      host.logger?.warn(`keelwatch: report tool injection failed: ${describe(error)}`)
+    }
+  }
+
+  if (typeof inject !== 'function') {
+    // Hosts without nested injection still get the tool if the registry is
+    // already reachable; registering twice would collide, hence the `else`.
+    try {
+      registerReportTool(reportDeps)
+    } catch (error) {
+      host.logger?.warn(`keelwatch: report tool disabled after load error: ${describe(error)}`)
+    }
   }
 }
 

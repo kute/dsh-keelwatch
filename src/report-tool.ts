@@ -17,6 +17,8 @@ import { formatTokenUsage, type TokenAttribution, type TokenMeterLike } from './
 
 export interface ReportDeps {
   readonly host: KeelwatchHost
+  /** Tool registry handed over by the host; preferred over probing `host.tools`. */
+  readonly registry?: unknown
   readonly driftConfig: DriftRadarConfig
   readonly costConfig: CostAttributionConfig
   readonly brake?: FailureBrake
@@ -89,10 +91,35 @@ export async function buildStatusReport(deps: ReportDeps): Promise<string> {
   return sections.join('\n\n')
 }
 
+/**
+ * Find a tool registry.
+ *
+ * `ctx.tools` only exists once the `tools` service is injected/mixed in, so a
+ * plugin that merely listens to events cannot assume it. `ctx.reflect.get` reads
+ * a service without the injection requirement, which is why it is tried too.
+ */
+function resolveRegistry(deps: ReportDeps): { register(tool: unknown): unknown } | null {
+  const candidates: unknown[] = [deps.registry, deps.host.tools]
+  try {
+    candidates.push(deps.host.reflect?.get('tools'))
+  } catch {
+    // No reflect on this host; the property candidates still apply.
+  }
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'object' || candidate === null) continue
+    const registry = candidate as { register?: unknown }
+    if (typeof registry.register === 'function') return registry as { register(tool: unknown): unknown }
+  }
+  return null
+}
+
 /** Register the tool when the profile exposes a tool registry. */
 export function registerReportTool(deps: ReportDeps): boolean {
-  const registry = deps.host.tools
-  if (registry === undefined || typeof registry.register !== 'function') return false
+  const registry = resolveRegistry(deps)
+  if (registry === null) {
+    deps.host.logger?.warn('keelwatch: no tool registry available; keelwatch_report stays unregistered')
+    return false
+  }
 
   const tool = defineTool({
     name: 'keelwatch_report',

@@ -40,7 +40,13 @@ dsh plugin --profile <your-profile> add ./kute-dsh-keelwatch-0.1.0.tgz
 
 依赖宿主提供 `@deepseek-ai/cordis`、`@deepseek-ai/schemastery`、`@deepseek-ai/dsh-tools`（声明为 peer），并要求 `engines.dsh` 兼容。
 
-## 配置
+## 配置页面
+
+Web GUI 里：**侧栏「插件」→ `@kute/dsh-keelwatch` 详情页 → 配置区块**（`plugins.bundle.config`）。表单覆盖三个分组的常用项，**保存即写入 profile 的 `cordis.patch.yml` 并让 Loader 重新加载该行**，不需要手工编辑 YAML。
+
+编辑器不可用（headless、无 webserver 的 profile）时，直接改 `~/.dsh/profiles/<profile>/cordis.patch.yml`。
+
+## 配置文件形态
 
 全部键都有默认值；缺失即「只记录、不动作」，绝不会让 DSH 启动失败。
 
@@ -95,9 +101,14 @@ dsh plugin --profile <your-profile> add ./kute-dsh-keelwatch-0.1.0.tgz
 
 ```sh
 pnpm install
-pnpm build      # tsc -> lib/
+pnpm build      # tsc -> lib/ + 浏览器半侧 src/client/index.js -> lib/client.js
 pnpm test       # node --test test/*.test.mjs
 ```
+
+目录直链安装后，改完代码只需 `pnpm build` + 重启 dsh web，不必重新打包。
+
+浏览器半侧是手写的模块加载器格式（`window.__ModuleLoader__.load`），由 `scripts/build-client.mjs`
+复制并做加载校验——不引入第二套前端构建链。
 
 测试跑在 `lib/` 构建产物上，与 DSH 社区惯例一致；每个用例把 `DSH_HOME` 指向临时目录。
 

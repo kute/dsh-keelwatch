@@ -22,7 +22,11 @@
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
-    }
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "lib",
@@ -35,7 +39,7 @@
     "node": ">=22.19"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/build-client.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test test/*.test.mjs",
     "prepublishOnly": "npm run build && npm test",
@@ -58,6 +62,12 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
+      ]
     }
   }
 }

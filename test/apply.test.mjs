@@ -119,6 +119,24 @@ test('a failing listener body never propagates as a tool error', async () => {
   assert.deepEqual(decision, { isError: false })
 })
 
+test('the report tool is registered through ctx.inject, not by assuming ctx.tools', () => {
+  const registered = []
+  const injected = []
+  const host = {
+    logger: { warn: () => {}, info: () => {} },
+    on: () => () => {},
+    timer: { interval: () => {}, timeout: () => () => {} },
+    inject: (deps, callback) => {
+      injected.push(deps)
+      callback({ tools: { register: (tool) => registered.push(tool.name) } })
+      return {}
+    },
+  }
+  apply(host, baseConfig({}))
+  assert.deepEqual(injected, [['tools']])
+  assert.deepEqual(registered, ['keelwatch_report'])
+})
+
 test('the drift radar scans once at startup and schedules the configured period', () => {
   const home = mkdtempSync(join(tmpdir(), 'keelwatch-apply-'))
   const previous = process.env.DSH_HOME
