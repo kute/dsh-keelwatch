@@ -81,6 +81,12 @@
 
 ### 配置页（Web GUI）
 
+![配置页：三组配置（漂移雷达 / 失败刹车 / 成本归因）](https://kute.github.io/dsh-keelwatch/images/config-form.png)
+
+![配置页：仪表盘开关、入口链接与保存](https://kute.github.io/dsh-keelwatch/images/config-dashboard.png)
+
+> 截图来自真实界面，已裁掉侧栏（会话/工作区/账号）并把本机路径脱敏为 `~`。
+
 
 
 侧栏 **插件** → `@kutebai/dsh-keelwatch` → 详情页里的**配置区**。改完点保存即可，会：
