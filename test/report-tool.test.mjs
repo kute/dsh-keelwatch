@@ -45,10 +45,15 @@ test('the status report covers all four sections without throwing', withTempHome
     ledger,
   })
 
-  assert.match(report, /bundles: management unavailable/)
-  assert.match(report, /drift scan over 0 bundle\(s\): no findings/)
-  assert.match(report, /failure brake: braking bash/)
+  // Every section carries both readings and the report ends with a conclusion.
+  assert.match(report, /keelwatch status report · keelwatch 状态报告/)
+  assert.match(report, /\[1\] Bundles 插件包/)
+  assert.match(report, /EN: /)
+  assert.match(report, /ZH: /)
+  assert.match(report, /0 package\(s\) scanned, no findings/)
+  assert.match(report, /braking: bash/)
   assert.match(report, /bash: 1 call\(s\), 0 error\(s\)/)
+  assert.match(report, /\[6\] Conclusion 结论/)
 }))
 
 test('a disabled brake and ledger are reported as such, not omitted', withTempHome(async () => {
@@ -57,8 +62,9 @@ test('a disabled brake and ledger are reported as such, not omitted', withTempHo
     driftConfig: DEFAULTS.driftRadar,
     costConfig: DEFAULTS.costAttribution,
   })
-  assert.match(report, /failure brake: disabled in configuration/)
-  assert.match(report, /tool time: not recorded/)
+  assert.match(report, /disabled in configuration · 配置中未启用/)
+  assert.match(report, /not recorded \(cost attribution disabled\)/)
+  assert.match(report, /No broken bundles, no drift, nothing braking/)
 }))
 
 test('the tool refuses a disable without a bundle name instead of guessing', withTempHome(async () => {
