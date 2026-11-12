@@ -37,11 +37,9 @@
       "versions": [
         {
           "version": "0.1.0",
-          "publishTimestamp": 1794453213,
+          "publishTimestamp": 1794453673,
           "source": {
-            "type": "git",
-            "url": "https://github.com/kute/dsh-keelwatch",
-            "commit": "7a0ba5927990bd7c8eb2b3ad3a9634660462ce58"
+            "type": "npm"
           },
           "engines": {
             "dsh": ">=0.2.1-0 <0.3.0-0"
